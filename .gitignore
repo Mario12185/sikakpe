@@ -39,3 +39,19 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+# Firebase Service Accounts - NE JAMAIS COMMIT
+*firebase-adminsdk*.json
+firebase-service-account.json
+serviceAccountKey.json
+
+# Environnement & secrets
+.env
+.env.local
+*.pem
+*.p12
+
+# Logs & cache
+*.log
+node_modules/
+.webpack/
+.dist/
