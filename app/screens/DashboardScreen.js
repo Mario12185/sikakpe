@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useTheme } from '../context/ThemeContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
+import InstallPrompt from '../components/InstallPrompt';
 
 export default function DashboardScreen({ navigation }) {
   const { theme } = useTheme();
@@ -38,14 +39,14 @@ export default function DashboardScreen({ navigation }) {
   return (
     <ScrollView style={[styles.container, { paddingTop: insets.top + 10, backgroundColor: theme.colors.background }]}>
       <View style={[styles.header, { backgroundColor: theme.colors.primary }]}>
-        <Text style={styles.headerTitle}>🇹🇬 SikaKpɛ</Text>
+        <Text style={styles.headerTitle}>ðŸ‡¹ðŸ‡¬ SikaKpÉ›</Text>
         <Text style={styles.headerSub}>Validation des prestations de gardiennage</Text>
       </View>
-
-      <View style={styles.statsRow}>
+    <InstallPrompt />
+    <View style={styles.statsRow}>
         <StatCard icon="hourglass-empty" label="En attente" count={stats.pending} color={theme.colors.warning} bg="#FFFBEB" />
-        <StatCard icon="check-circle" label="Approuvées" count={stats.validated} color={theme.colors.success} bg="#ECFDF5" />
-        <StatCard icon="cancel" label="Contestées" count={stats.disputed} color={theme.colors.error} bg="#FEF2F2" />
+        <StatCard icon="check-circle" label="ApprouvÃ©es" count={stats.validated} color={theme.colors.success} bg="#ECFDF5" />
+        <StatCard icon="cancel" label="ContestÃ©es" count={stats.disputed} color={theme.colors.error} bg="#FEF2F2" />
       </View>
 
       <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('Services')}>
