@@ -55,3 +55,20 @@ serviceAccountKey.json
 node_modules/
 .webpack/
 .dist/
+# 🔐 Firebase Service Accounts - NE JAMAIS COMMIT
+firebase-service-account.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
+# 🔐 Environnement & secrets
+.env
+.env.local
+*.pem
+*.p12
+*.key
+
+# 🗑️ Logs & cache
+*.log
+node_modules/
+.webpack/
+.dist/
