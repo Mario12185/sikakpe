@@ -1,4 +1,4 @@
-// 📦 App.js — SikaKpɛ (Version avec module Sécurité)
+// 📦 App.js — SikaKpɛ — DESIGN PRO GARANTI (sans dépendance thème externe)
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -7,166 +7,171 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
-// 🎨 Design System Global
-import theme from './src/theme/designSystem';
 
 // 🔐 Firebase
 import { auth, db } from './app/services/firebase';
-import { signInAnonymously, onAuthStateChanged, signOut } from 'firebase/auth';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
-// 🎨 Contexte Thème
+// 🎨 Contexte Thème (optionnel — fallback intégré)
 import { ThemeProvider, useTheme } from './app/context/ThemeContext';
 
-// 🖥️ Écrans existants (adapte les chemins si nécessaire)
+// 🖥️ Écrans existants
 import DashboardScreen from './app/screens/DashboardScreen';
 import ServicesScreen from './app/screens/ServicesScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
 
-// 🛡️ NOUVEAUX ÉCRANS — Module Sécurité
+// 🛡️ Module Sécurité
 import CheckInScreen from './src/screens/CheckInScreen';
 import AgencyVerificationScreen from './src/screens/AgencyVerificationScreen';
 
-// ⚙️ Prévention du splash screen auto
+// ⚙️ Splash screen
 SplashScreen.preventAutoHideAsync();
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // ─────────────────────────────────────────────────────────────
-// 🔐 Stack pour l'onglet "Sécurité" — VERSION SANS useTheme (CORRIGÉ)
+// 🎨 PALETTE PRO — UTILISÉE PARTOUT (garantie cohérence)
+// ─────────────────────────────────────────────────────────────
+const COLORS = {
+  primary: '#1a365d',        // Bleu marine - autorité
+  primaryLight: '#2c5282',   // Bleu moyen - hover
+  success: '#00aa55',        // Vert - validation
+  warning: '#dd6b20',        // Orange - attention
+  error: '#c53030',          // Rouge - erreur
+  background: '#f7fafc',     // Fond clair
+  card: '#ffffff',           // Cartes
+  text: '#1a202c',           // Texte principal
+  textSecondary: '#4a5568',  // Texte secondaire
+  border: '#e2e8f0',         // Bordures
+};
+
+// ─────────────────────────────────────────────────────────────
+// 🔐 Stack Sécurité (couleurs garanties)
 // ─────────────────────────────────────────────────────────────
 function SecurityStack() {
-  // 🎨 Couleurs fixes (pas de useTheme pour éviter les crashes)
-  const colors = {
-    card: '#ffffff',
-    text: '#000000',
-    background: '#f5f5f5'
-  };
-
   return (
     <Stack.Navigator 
       screenOptions={{ 
-        headerStyle: { backgroundColor: colors.card }, 
-        headerTintColor: colors.text,
-        headerBackTitle: 'Retour'
+        headerStyle: { backgroundColor: COLORS.card }, 
+        headerTintColor: COLORS.text,
+        headerBackTitle: 'Retour',
+        headerTitleStyle: { fontWeight: '600' }
       }}
     >
-      <Stack.Screen 
-        name="SecurityMenu" 
-        component={SecurityMenuScreen} 
-        options={{ title: '🛡️ Sécurité', headerShown: false }} 
-      />
-      <Stack.Screen 
-        name="CheckIn" 
-        component={CheckInScreen} 
-        options={{ title: '📍 Check-in QR/GPS', headerShown: true }} 
-      />
-      <Stack.Screen 
-        name="AgencyVerification" 
-        component={AgencyVerificationScreen} 
-        options={{ title: '🛡️ Vérification Agence', headerShown: true }} 
-      />
+      <Stack.Screen name="SecurityMenu" component={SecurityMenuScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CheckIn" component={CheckInScreen} options={{ title: '📍 Check-in QR/GPS' }} />
+      <Stack.Screen name="AgencyVerification" component={AgencyVerificationScreen} options={{ title: '🛡️ Vérification' }} />
     </Stack.Navigator>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🧭 Menu Sécurité — DESIGN SYSTEM GLOBAL
+// 🧭 Menu Sécurité — DESIGN PRO GARANTI
 // ─────────────────────────────────────────────────────────────
 function SecurityMenuScreen({ navigation }) {
-  const { colors, spacing, typography, components } = theme;
-
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.lg }}>
+    <View style={{ flex: 1, backgroundColor: COLORS.background, padding: 20 }}>
       
       {/* 🎯 En-tête */}
-      <View style={{ marginBottom: spacing.xl }}>
-        <Text style={{ 
-          fontSize: typography.sizes.xxl, 
-          fontWeight: typography.weights.bold, 
-          color: colors.primary,
-          marginBottom: spacing.sm
-        }}>
+      <View style={{ marginBottom: 24 }}>
+        <Text style={{ fontSize: 26, fontWeight: '700', color: COLORS.primary, marginBottom: 8 }}>
           🛡️ Sécurité & Contrôle
         </Text>
-        <Text style={{ 
-          fontSize: typography.sizes.md, 
-          color: colors.textSecondary, 
-          lineHeight: 22 
-        }}>
+        <Text style={{ fontSize: 15, color: COLORS.textSecondary, lineHeight: 22 }}>
           Validez la présence des gardiens et gérez les agréments des agences partenaires.
         </Text>
       </View>
 
       {/* 📍 Carte Check-in QR/GPS */}
       <TouchableOpacity 
-        style={components.card}
+        style={{
+          backgroundColor: COLORS.card,
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 16,
+          shadowColor: COLORS.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 3,
+          borderLeftWidth: 4,
+          borderLeftColor: COLORS.primary,
+        }}
         onPress={() => navigation.navigate('CheckIn')}
         activeOpacity={0.85}
       >
-        <Text style={{ fontSize: 32, marginBottom: spacing.md }}>📍</Text>
-        <Text style={{ 
-          fontSize: typography.sizes.lg, 
-          fontWeight: typography.weights.semibold, 
-          color: colors.text, 
-          marginBottom: spacing.xs 
-        }}>
+        <Text style={{ fontSize: 32, marginBottom: 12 }}>📍</Text>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>
           Check-in QR/GPS
         </Text>
-        <Text style={{ 
-          fontSize: typography.sizes.sm, 
-          color: colors.textSecondary, 
-          lineHeight: 20, 
-          marginBottom: spacing.md 
-        }}>
+        <Text style={{ fontSize: 14, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 16 }}>
           Le gardien scanne le QR Code du site pour valider sa présence. 
           Vérification automatique de l'identité et de la localisation.
         </Text>
-        <View style={components.buttonPrimary}>
-          <Text style={components.buttonPrimaryText}>→ Commencer un check-in</Text>
+        <View style={{
+          backgroundColor: COLORS.primary,
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          borderRadius: 8,
+          alignSelf: 'flex-start'
+        }}>
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+            → Commencer un check-in
+          </Text>
         </View>
       </TouchableOpacity>
 
       {/* 🛡️ Carte Vérification Agence */}
       <TouchableOpacity 
-        style={{ ...components.card, borderLeftColor: colors.success }}
+        style={{
+          backgroundColor: COLORS.card,
+          borderRadius: 16,
+          padding: 20,
+          marginBottom: 16,
+          shadowColor: COLORS.primary,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 3,
+          borderLeftWidth: 4,
+          borderLeftColor: COLORS.success, // Vert pour cette carte
+        }}
         onPress={() => navigation.navigate('AgencyVerification')}
         activeOpacity={0.85}
       >
-        <Text style={{ fontSize: 32, marginBottom: spacing.md }}>🛡️</Text>
-        <Text style={{ 
-          fontSize: typography.sizes.lg, 
-          fontWeight: typography.weights.semibold, 
-          color: colors.text, 
-          marginBottom: spacing.xs 
-        }}>
+        <Text style={{ fontSize: 32, marginBottom: 12 }}>🛡️</Text>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.text, marginBottom: 6 }}>
           Vérification d'Agence
         </Text>
-        <Text style={{ 
-          fontSize: typography.sizes.sm, 
-          color: colors.textSecondary, 
-          lineHeight: 20, 
-          marginBottom: spacing.md 
-        }}>
+        <Text style={{ fontSize: 14, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 16 }}>
           Soumettez vos documents légaux (licence, NINA, assurance) pour obtenir 
           le badge ✅ "Agence Vérifiée" visible par vos clients.
         </Text>
-        <View style={{ ...components.buttonPrimary, backgroundColor: colors.success }}>
-          <Text style={components.buttonPrimaryText}>→ Soumettre mes documents</Text>
+        <View style={{
+          backgroundColor: COLORS.success, // Bouton vert
+          paddingVertical: 10,
+          paddingHorizontal: 16,
+          borderRadius: 8,
+          alignSelf: 'flex-start'
+        }}>
+          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
+            → Soumettre mes documents
+          </Text>
         </View>
       </TouchableOpacity>
 
       {/* ℹ️ Info complémentaire */}
       <View style={{ 
-        marginTop: spacing.sm, 
-        padding: spacing.md, 
+        marginTop: 8, 
+        padding: 12, 
         backgroundColor: '#ebf8ff', 
         borderRadius: 12,
         borderLeftWidth: 4,
-        borderLeftColor: colors.info
+        borderLeftColor: COLORS.primary
       }}>
-        <Text style={{ color: colors.primary, fontSize: 13, lineHeight: 18 }}>
-          💡 <Text style={{ fontWeight: typography.weights.semibold }}>Astuce :</Text> Pour tester le check-in, 
+        <Text style={{ color: COLORS.primary, fontSize: 13, lineHeight: 18 }}>
+          💡 <Text style={{ fontWeight: '600' }}>Astuce :</Text> Pour tester le check-in, 
           générez un QR Code avec le texte `SITE-TEST-001` et assurez-vous que le site 
           existe dans Firestore avec ses coordonnées GPS.
         </Text>
@@ -176,29 +181,18 @@ function SecurityMenuScreen({ navigation }) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🧭 Navigation principale (Bottom Tabs) — CORRIGÉ
+// 🧭 Navigation principale (Bottom Tabs) — COULEURS GARANTIES
 // ─────────────────────────────────────────────────────────────
 function MainTabs() {
-  // 🔐 Sécurité : récupérer le thème avec fallback robuste
-  let colors = {
-    background: '#f5f5f5',
-    card: '#ffffff',
-    text: '#000000',
-    textSecondary: '#666666',
-    border: '#e0e0e0'
-  };
-  let isDark = false;
-  
+  // 🎨 Fallback sécurisé pour le thème (optionnel)
+  let themeColors = COLORS;
   try {
     const theme = useTheme?.();
-    if (theme?.colors) colors = theme.colors;
-    if (typeof theme?.isDark === 'boolean') isDark = theme.isDark;
+    if (theme?.colors) themeColors = { ...COLORS, ...theme.colors };
   } catch (e) {
-    // Fallback silencieux si le contexte n'est pas prêt
-    console.warn('⚠️ Theme context not ready, using defaults');
+    console.warn('⚠️ Theme non disponible, utilisation des couleurs par défaut');
   }
 
-  // 🎨 Options des onglets (avec couleurs sécurisées)
   const getTabOptions = ({ route }) => ({
     tabBarIcon: ({ color, size }) => {
       const icons = {
@@ -209,16 +203,18 @@ function MainTabs() {
       };
       return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
     },
-    tabBarActiveTintColor: '#0066CC',
-    tabBarInactiveTintColor: colors.textSecondary || '#666666',
+    tabBarActiveTintColor: COLORS.primary,        // ← Bleu marine pro
+    tabBarInactiveTintColor: COLORS.textSecondary,
     tabBarStyle: { 
-      backgroundColor: colors.card || '#ffffff', 
-      borderTopColor: colors.border || '#e0e0e0' 
+      backgroundColor: COLORS.card, 
+      borderTopColor: COLORS.border,
+      paddingBottom: 6,
+      paddingTop: 6,
+      height: 60
     },
-    headerStyle: { 
-      backgroundColor: colors.card || '#ffffff' 
-    },
-    headerTintColor: colors.text || '#000000',
+    headerStyle: { backgroundColor: COLORS.card, elevation: 0, shadowOpacity: 0 },
+    headerTintColor: COLORS.text,
+    headerTitleStyle: { fontWeight: '600', fontSize: 17 }
   });
   
   return (
@@ -231,47 +227,28 @@ function MainTabs() {
   );
 }
 
-/// ─────────────────────────────────────────────────────────────
-// 🎯 Composant principal App (avec Auth + PWA + Splash) — CORRIGÉ
+// ─────────────────────────────────────────────────────────────
+// 🎯 Composant principal App (Auth + PWA + Splash)
 // ─────────────────────────────────────────────────────────────
 function AppContent() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // 🔐 Sécurité : récupérer le thème avec fallback
-  const themeContext = useTheme?.() || {};
-  const colors = themeContext.colors || {
-    background: '#ffffff',
-    card: '#ffffff',
-    text: '#000000',
-    textSecondary: '#666666',
-    border: '#eeeeee'
-  };
-  const isDark = themeContext.isDark || false;
 
-  // 🎯 Effet PWA + Splash Screen (Sécurisé Android & Web) — INCHANGÉ
+  // 🎯 Splash + PWA
   useEffect(() => {
     const hideSplash = async () => {
       try {
         await new Promise(resolve => setTimeout(resolve, 500));
         await SplashScreen.hideAsync();
-      } catch (e) { /* Ignore si splash déjà caché */ }
+      } catch (e) { /* Ignore */ }
     };
     hideSplash();
 
-    // 📲 Prompt PWA (UNIQUEMENT sur Web)
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      const handleInstall = (e) => {
-        e.preventDefault();
-        window.deferredPrompt = e;
-      };
-      const handleInstalled = () => {
-        window.deferredPrompt = null;
-      };
-      
+      const handleInstall = (e) => { e.preventDefault(); window.deferredPrompt = e; };
+      const handleInstalled = () => { window.deferredPrompt = null; };
       window.addEventListener('beforeinstallprompt', handleInstall);
       window.addEventListener('appinstalled', handleInstalled);
-
       return () => {
         window.removeEventListener('beforeinstallprompt', handleInstall);
         window.removeEventListener('appinstalled', handleInstalled);
@@ -279,7 +256,7 @@ function AppContent() {
     }
   }, []);
 
-  // 🔐 Auth Firebase anonyme
+  // 🔐 Auth Firebase
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -287,9 +264,7 @@ function AppContent() {
           setUser(currentUser);
           setLoading(false);
         });
-        if (!auth.currentUser) {
-          await signInAnonymously(auth);
-        }
+        if (!auth.currentUser) await signInAnonymously(auth);
         return unsubscribe;
       } catch (e) {
         console.error('❌ Auth error:', e);
@@ -300,12 +275,11 @@ function AppContent() {
     initAuth();
   }, []);
 
-  // 🎨 Fallback visuel pendant le chargement
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-        <ActivityIndicator size="large" color="#0066CC" />
-        <Text style={{ color: colors.text, marginTop: 10 }}>Chargement...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ color: COLORS.text, marginTop: 10, fontSize: 14 }}>Chargement...</Text>
       </View>
     );
   }
@@ -320,29 +294,7 @@ function AppContent() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🎨 Styles
-// ─────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
-  desc: { fontSize: 14, marginBottom: 24, lineHeight: 20 },
-  card: {
-    padding: 20,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  cardTitle: { fontSize: 18, fontWeight: '600', marginTop: 12, marginBottom: 4 },
-  cardDesc: { fontSize: 13, lineHeight: 18 },
-});
-
-// ─────────────────────────────────────────────────────────────
-// 🚀 Export final (avec ThemeProvider)
+// 🚀 Export final
 // ─────────────────────────────────────────────────────────────
 export default function App() {
   return (
