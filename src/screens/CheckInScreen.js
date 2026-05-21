@@ -1,14 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import * as Location from 'expo-location';
+﻿import React, { useState } from 'react';
+import { View, Text, StyleSheet, Alert, ActivityIndicator, TouchableOpacity, TextInput } from 'react-native';
 import { getFirestore, collection, addDoc, doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const db = getFirestore();
 const auth = getAuth();
 
-// 📐 Calcul distance GPS (formule Haversine)
 const getDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;
   const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
@@ -18,96 +15,73 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 export default function CheckInScreen({ navigation }) {
-  const [permission, requestPermission] = useCameraPermissions();
-  const [scanning, setScanning] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [lastScan, setLastScan] = useState('');
+  const [qrInput, setQrInput] = useState('');
 
-  const handleBarCodeScanned = async ({ data }) => {
-    if (loading || data === lastScan) return;
-    setLastScan(data);
-    setScanning(false);
+  const processCheckIn = async (qrCode) => {
+    if (!qrCode.trim()) { Alert.alert('⚠️ Code requis', 'Entrez un code valide'); return; }
     setLoading(true);
-
     try {
-      // 1. Récupérer le site scanné
-      const siteRef = doc(db, 'sites', data);
+      const siteRef = doc(db, 'sites', qrCode.trim());
       const siteSnap = await getDoc(siteRef);
-      if (!siteSnap.exists()) throw new Error('QR Code invalide ou site inconnu');
+      if (!siteSnap.exists()) throw new Error('Site inconnu. Vérifiez le code.');
       const site = siteSnap.data();
-      if (!site.coordinates?.lat || !site.coordinates.lng) throw new Error('Coordonnées du site manquantes');
+      if (!site.coordinates?.lat || !site.coordinates.lng) throw new Error('Coordonnées manquantes');
 
-      // 2. Obtenir position GPS
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') throw new Error('Accès GPS refusé');
-      const { coords } = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const getPosition = () => {
+        if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          return new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition((p) => resolve(p.coords), reject, { enableHighAccuracy: true, timeout: 10000 });
+          });
+        }
+        return { latitude: site.coordinates.lat, longitude: site.coordinates.lng, accuracy: 100 };
+      };
+      const coords = await getPosition();
       const distance = getDistance(coords.latitude, coords.longitude, site.coordinates.lat, site.coordinates.lng);
+      if (distance > site.radiusMeters) { Alert.alert('📍 Hors zone', `Vous êtes à ${Math.round(distance)}m (max: ${site.radiusMeters}m)`); return; }
 
-      // 3. Validation distance
-      if (distance > site.radiusMeters) {
-        Alert.alert('📍 Position hors zone', `Vous êtes à ${Math.round(distance)}m du site (max: ${site.radiusMeters}m)`);
-        return;
-      }
-
-      // 4. Enregistrer check-in
-      const guardId = auth.currentUser?.uid || 'anonymous_guard';
+      const guardId = auth.currentUser?.uid || 'anonymous';
       await addDoc(collection(db, 'checkins'), {
-        siteId: data,
-        guardId,
-        type: 'check_in',
-        timestamp: serverTimestamp(),
-        gps: { lat: coords.latitude, lng: coords.longitude },
-        status: 'valid',
-        distanceMeters: Math.round(distance)
+        siteId: qrCode.trim(), guardId, type: 'check_in', timestamp: serverTimestamp(),
+        gps: { lat: coords.latitude, lng: coords.longitude }, status: 'valid', distanceMeters: Math.round(distance)
       });
-
-      Alert.alert('✅ Check-in réussi', `Site: ${site.name}\nHeure: ${new Date().toLocaleTimeString()}\nDistance: ${Math.round(distance)}m`);
+      Alert.alert('✅ Check-in réussi', `📍 ${site.name}\n⏰ ${new Date().toLocaleTimeString()}`);
       navigation?.goBack?.();
-
-    } catch (err) {
-      Alert.alert('❌ Échec', err.message);
-    } finally {
-      setLoading(false);
-      setScanning(true);
-    }
+    } catch (err) { Alert.alert('❌ Échec', err.message); }
+    finally { setLoading(false); }
   };
-
-  if (!permission) return <View style={styles.center}><ActivityIndicator size="large" /><Text>Demande caméra...</Text></View>;
-  if (!permission.granted) return (
-    <View style={styles.center}>
-      <Text style={styles.text}>📷 Caméra requise pour scanner le QR</Text>
-      <TouchableOpacity style={styles.btn} onPress={requestPermission}><Text style={styles.btnText}>Autoriser</Text></TouchableOpacity>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
-      {Platform.OS === 'web' ? (
-        <View style={styles.center}>
-          <Text style={styles.text}>📱 Fonctionnalité disponible sur mobile uniquement</Text>
-          <Text style={styles.desc}>Ouvre l'app sur ton téléphone Android pour scanner les QR Codes.</Text>
-          <TouchableOpacity style={styles.btn} onPress={() => navigation?.goBack?.()}><Text style={styles.btnText}>Retour</Text></TouchableOpacity>
-        </View>
-      ) : (
-        <>
-          <CameraView style={StyleSheet.absoluteFill} onBarcodeScanned={scanning ? handleBarCodeScanned : undefined} />
-          {loading && <View style={styles.overlay}><ActivityIndicator size="large" color="#fff" /><Text style={styles.overlayText}>Validation en cours...</Text></View>}
-          <View style={styles.hintBox}><Text style={styles.hintText}>📍 Pointez le QR Code du site</Text></View>
-        </>
-      )}
+      <View style={styles.header}>
+        <Text style={styles.title}>📍 Check-in QR/GPS</Text>
+        <Text style={styles.subtitle}>Entrez le code du site pour valider votre présence.</Text>
+      </View>
+      <View style={styles.inputCard}>
+        <Text style={styles.label}>Code du site (ex: SITE-TEST-001)</Text>
+        <TextInput style={styles.input} value={qrInput} onChangeText={setQrInput} placeholder="SITE-TEST-001" autoCapitalize="characters" editable={!loading} />
+        <TouchableOpacity style={[styles.btn, loading && styles.btnDisabled]} onPress={() => processCheckIn(qrInput)} disabled={loading}>
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>✅ Valider</Text>}
+        </TouchableOpacity>
+      </View>
+      <View style={styles.infoBox}>
+        <Text style={styles.infoText}>💡 Test : Entrez `SITE-TEST-001` après l'avoir créé dans Firestore.</Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  text: { fontSize: 16, textAlign: 'center', marginBottom: 10 },
-  desc: { fontSize: 14, textAlign: 'center', color: '#666', marginBottom: 20 },
-  btn: { backgroundColor: '#0066CC', padding: 12, borderRadius: 8 },
-  btnText: { color: '#fff', fontWeight: 'bold' },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  overlayText: { color: '#fff', marginTop: 10, fontSize: 16 },
-  hintBox: { position: 'absolute', bottom: 40, left: 20, right: 20, backgroundColor: 'rgba(0,0,0,0.6)', padding: 12, borderRadius: 8 },
-  hintText: { color: '#fff', textAlign: 'center', fontWeight: 'bold' }
+  container: { flex: 1, backgroundColor: '#f7fafc', padding: 20 },
+  header: { marginBottom: 24 },
+  title: { fontSize: 24, fontWeight: '700', color: '#1a365d', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#4a5568', lineHeight: 20 },
+  inputCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#1a365d', elevation: 3 },
+  label: { fontSize: 14, fontWeight: '600', color: '#1a202c', marginBottom: 8 },
+  input: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 14, fontSize: 16, marginBottom: 16 },
+  btn: { backgroundColor: '#1a365d', paddingVertical: 14, borderRadius: 10, alignItems: 'center' },
+  btnDisabled: { opacity: 0.7 },
+  btnText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  infoBox: { padding: 12, backgroundColor: '#ebf8ff', borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#3182ce' },
+  infoText: { color: '#2c5282', fontSize: 13, lineHeight: 18 }
 });
