@@ -69,76 +69,100 @@ function SecurityStack() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🧭 Menu principal de l'onglet Sécurité — VERSION SIMPLIFIÉE
+// 🧭 Menu Sécurité — DESIGN PROFESSIONNEL
 // ─────────────────────────────────────────────────────────────
 function SecurityMenuScreen({ navigation }) {
-  // 🔐 Couleurs avec fallback sécurisé (pas de useTheme pour éviter les bugs)
+  // 🎨 Palette professionnelle "Sécurité"
   const colors = {
-    background: '#f5f5f5',
+    primary: '#1a365d',
+    primaryLight: '#2c5282',
+    success: '#00aa55',
+    warning: '#dd6b20',
+    background: '#f7fafc',
     card: '#ffffff',
-    text: '#000000',
-    textSecondary: '#666666',
+    text: '#1a202c',
+    textSecondary: '#4a5568'
+  };
+
+  const styles = {
+    container: { flex: 1, backgroundColor: colors.background, padding: 20 },
+    header: { marginBottom: 24 },
+    title: { fontSize: 26, fontWeight: '700', color: colors.primary, marginBottom: 8 },
+    subtitle: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
+    card: {
+      backgroundColor: colors.card,
+      borderRadius: 16,
+      padding: 20,
+      marginBottom: 16,
+      shadowColor: colors.primary,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary
+    },
+    cardIcon: { fontSize: 32, marginBottom: 12 },
+    cardTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 6 },
+    cardDesc: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
+    cardButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
+    cardButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
+    cardVerified: { borderLeftColor: colors.success },
+    cardButtonVerified: { backgroundColor: colors.success }
   };
 
   return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: colors.background }}>
-      <Text style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 8, color: colors.text }}>
-        🛡️ Module Sécurité
-      </Text>
-      <Text style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 24, lineHeight: 20 }}>
-        Contrôlez la présence des gardiens et vérifiez les agréments des agences.
-      </Text>
-      
-      {/* 📍 Carte Check-in QR/GPS */}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>🛡️ Sécurité & Contrôle</Text>
+        <Text style={styles.subtitle}>
+          Validez la présence des gardiens et gérez les agréments des agences partenaires.
+        </Text>
+      </View>
+
       <TouchableOpacity 
-        style={{
-          padding: 20,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}
+        style={styles.card}
         onPress={() => navigation.navigate('CheckIn')}
+        activeOpacity={0.85}
       >
-        <Text style={{ fontSize: 24, marginBottom: 8 }}>📍</Text>
-        <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
-          Check-in QR/GPS
+        <Text style={styles.cardIcon}>📍</Text>
+        <Text style={styles.cardTitle}>Check-in QR/GPS</Text>
+        <Text style={styles.cardDesc}>
+          Le gardien scanne le QR Code du site pour valider sa présence. 
+          Vérification automatique de l'identité et de la localisation.
         </Text>
-        <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-          Scanner le QR du site pour valider la présence du gardien
-        </Text>
+        <View style={styles.cardButton}>
+          <Text style={styles.cardButtonText}>→ Commencer un check-in</Text>
+        </View>
       </TouchableOpacity>
 
-      {/* 🛡️ Carte Vérification Agence */}
       <TouchableOpacity 
-        style={{
-          padding: 20,
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          marginBottom: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          elevation: 3,
-        }}
+        style={[styles.card, styles.cardVerified]}
         onPress={() => navigation.navigate('AgencyVerification')}
+        activeOpacity={0.85}
       >
-        <Text style={{ fontSize: 24, marginBottom: 8 }}>🛡️</Text>
-        <Text style={{ fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 4 }}>
-          Vérification Agence
+        <Text style={styles.cardIcon}>🛡️</Text>
+        <Text style={styles.cardTitle}>Vérification d'Agence</Text>
+        <Text style={styles.cardDesc}>
+          Soumettez vos documents légaux (licence, NINA, assurance) pour obtenir 
+          le badge ✅ "Agence Vérifiée" visible par vos clients.
         </Text>
-        <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 18 }}>
-          Uploader les documents légaux pour obtenir le badge "Vérifié"
-        </Text>
+        <View style={[styles.cardButton, styles.cardButtonVerified]}>
+          <Text style={styles.cardButtonText}>→ Soumettre mes documents</Text>
+        </View>
       </TouchableOpacity>
+
+      <View style={{ marginTop: 8, padding: 12, backgroundColor: '#ebf8ff', borderRadius: 8 }}>
+        <Text style={{ color: '#2c5282', fontSize: 13, lineHeight: 18 }}>
+          💡 <Text style={{ fontWeight: '600' }}>Astuce :</Text> Pour tester le check-in, 
+          générez un QR Code avec le texte `SITE-TEST-001` et assurez-vous que le site 
+          existe dans Firestore avec ses coordonnées GPS.
+        </Text>
+      </View>
     </View>
   );
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // 🧭 Navigation principale (Bottom Tabs) — CORRIGÉ
