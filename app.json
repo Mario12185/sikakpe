@@ -25,7 +25,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/favicon.png",
       "publicPath": "/",
       "meta": {
@@ -33,6 +33,15 @@
         "apple-mobile-web-app-status-bar-style": "default",
         "viewport": "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
       }
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "96cc93b6-6cf8-40b3-a938-607b04c2ca9e"
+      }
+    },
+    "owner": "mario12185",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
