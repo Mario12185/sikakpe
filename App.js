@@ -21,8 +21,9 @@ import ServicesScreen from './app/screens/ServicesScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
 
 // 🛡️ Module Sécurité
-import CheckInScreen from './src/screens/CheckInScreen';
-import AgencyVerificationScreen from './src/screens/AgencyVerificationScreen';
+// ✅ CHEMIN CORRECT (app/screens existe)
+import CheckInScreen from './app/screens/CheckInScreen';
+import AgencyVerificationScreen from './app/screens/AgencyVerificationScreen';
 
 // ⚙️ Splash screen
 SplashScreen.preventAutoHideAsync();
