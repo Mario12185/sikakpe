@@ -7,6 +7,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
+// 🎨 Design System Global
+import theme from './src/theme/designSystem';
 
 // 🔐 Firebase
 import { auth, db } from './app/services/firebase';
@@ -69,92 +71,102 @@ function SecurityStack() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🧭 Menu Sécurité — DESIGN PROFESSIONNEL
+// 🧭 Menu Sécurité — DESIGN SYSTEM GLOBAL
 // ─────────────────────────────────────────────────────────────
 function SecurityMenuScreen({ navigation }) {
-  // 🎨 Palette professionnelle "Sécurité"
-  const colors = {
-    primary: '#1a365d',
-    primaryLight: '#2c5282',
-    success: '#00aa55',
-    warning: '#dd6b20',
-    background: '#f7fafc',
-    card: '#ffffff',
-    text: '#1a202c',
-    textSecondary: '#4a5568'
-  };
-
-  const styles = {
-    container: { flex: 1, backgroundColor: colors.background, padding: 20 },
-    header: { marginBottom: 24 },
-    title: { fontSize: 26, fontWeight: '700', color: colors.primary, marginBottom: 8 },
-    subtitle: { fontSize: 15, color: colors.textSecondary, lineHeight: 22 },
-    card: {
-      backgroundColor: colors.card,
-      borderRadius: 16,
-      padding: 20,
-      marginBottom: 16,
-      shadowColor: colors.primary,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 4,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary
-    },
-    cardIcon: { fontSize: 32, marginBottom: 12 },
-    cardTitle: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 6 },
-    cardDesc: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginBottom: 16 },
-    cardButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, alignSelf: 'flex-start' },
-    cardButtonText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
-    cardVerified: { borderLeftColor: colors.success },
-    cardButtonVerified: { backgroundColor: colors.success }
-  };
+  const { colors, spacing, typography, components } = theme;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>🛡️ Sécurité & Contrôle</Text>
-        <Text style={styles.subtitle}>
+    <View style={{ flex: 1, backgroundColor: colors.background, padding: spacing.lg }}>
+      
+      {/* 🎯 En-tête */}
+      <View style={{ marginBottom: spacing.xl }}>
+        <Text style={{ 
+          fontSize: typography.sizes.xxl, 
+          fontWeight: typography.weights.bold, 
+          color: colors.primary,
+          marginBottom: spacing.sm
+        }}>
+          🛡️ Sécurité & Contrôle
+        </Text>
+        <Text style={{ 
+          fontSize: typography.sizes.md, 
+          color: colors.textSecondary, 
+          lineHeight: 22 
+        }}>
           Validez la présence des gardiens et gérez les agréments des agences partenaires.
         </Text>
       </View>
 
+      {/* 📍 Carte Check-in QR/GPS */}
       <TouchableOpacity 
-        style={styles.card}
+        style={components.card}
         onPress={() => navigation.navigate('CheckIn')}
         activeOpacity={0.85}
       >
-        <Text style={styles.cardIcon}>📍</Text>
-        <Text style={styles.cardTitle}>Check-in QR/GPS</Text>
-        <Text style={styles.cardDesc}>
+        <Text style={{ fontSize: 32, marginBottom: spacing.md }}>📍</Text>
+        <Text style={{ 
+          fontSize: typography.sizes.lg, 
+          fontWeight: typography.weights.semibold, 
+          color: colors.text, 
+          marginBottom: spacing.xs 
+        }}>
+          Check-in QR/GPS
+        </Text>
+        <Text style={{ 
+          fontSize: typography.sizes.sm, 
+          color: colors.textSecondary, 
+          lineHeight: 20, 
+          marginBottom: spacing.md 
+        }}>
           Le gardien scanne le QR Code du site pour valider sa présence. 
           Vérification automatique de l'identité et de la localisation.
         </Text>
-        <View style={styles.cardButton}>
-          <Text style={styles.cardButtonText}>→ Commencer un check-in</Text>
+        <View style={components.buttonPrimary}>
+          <Text style={components.buttonPrimaryText}>→ Commencer un check-in</Text>
         </View>
       </TouchableOpacity>
 
+      {/* 🛡️ Carte Vérification Agence */}
       <TouchableOpacity 
-        style={[styles.card, styles.cardVerified]}
+        style={{ ...components.card, borderLeftColor: colors.success }}
         onPress={() => navigation.navigate('AgencyVerification')}
         activeOpacity={0.85}
       >
-        <Text style={styles.cardIcon}>🛡️</Text>
-        <Text style={styles.cardTitle}>Vérification d'Agence</Text>
-        <Text style={styles.cardDesc}>
+        <Text style={{ fontSize: 32, marginBottom: spacing.md }}>🛡️</Text>
+        <Text style={{ 
+          fontSize: typography.sizes.lg, 
+          fontWeight: typography.weights.semibold, 
+          color: colors.text, 
+          marginBottom: spacing.xs 
+        }}>
+          Vérification d'Agence
+        </Text>
+        <Text style={{ 
+          fontSize: typography.sizes.sm, 
+          color: colors.textSecondary, 
+          lineHeight: 20, 
+          marginBottom: spacing.md 
+        }}>
           Soumettez vos documents légaux (licence, NINA, assurance) pour obtenir 
           le badge ✅ "Agence Vérifiée" visible par vos clients.
         </Text>
-        <View style={[styles.cardButton, styles.cardButtonVerified]}>
-          <Text style={styles.cardButtonText}>→ Soumettre mes documents</Text>
+        <View style={{ ...components.buttonPrimary, backgroundColor: colors.success }}>
+          <Text style={components.buttonPrimaryText}>→ Soumettre mes documents</Text>
         </View>
       </TouchableOpacity>
 
-      <View style={{ marginTop: 8, padding: 12, backgroundColor: '#ebf8ff', borderRadius: 8 }}>
-        <Text style={{ color: '#2c5282', fontSize: 13, lineHeight: 18 }}>
-          💡 <Text style={{ fontWeight: '600' }}>Astuce :</Text> Pour tester le check-in, 
+      {/* ℹ️ Info complémentaire */}
+      <View style={{ 
+        marginTop: spacing.sm, 
+        padding: spacing.md, 
+        backgroundColor: '#ebf8ff', 
+        borderRadius: 12,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.info
+      }}>
+        <Text style={{ color: colors.primary, fontSize: 13, lineHeight: 18 }}>
+          💡 <Text style={{ fontWeight: typography.weights.semibold }}>Astuce :</Text> Pour tester le check-in, 
           générez un QR Code avec le texte `SITE-TEST-001` et assurez-vous que le site 
           existe dans Firestore avec ses coordonnées GPS.
         </Text>
@@ -162,7 +174,6 @@ function SecurityMenuScreen({ navigation }) {
     </View>
   );
 }
-
 
 // ─────────────────────────────────────────────────────────────
 // 🧭 Navigation principale (Bottom Tabs) — CORRIGÉ
