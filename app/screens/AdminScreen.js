@@ -1,0 +1,34 @@
+﻿import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { db } from '../services/firebase';
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+
+export default function AdminScreen() {
+  const [list, setList] = useState([]);
+  useEffect(() => {
+    return onSnapshot(collection(db, 'agencies'), snap => {
+      setList(snap.docs.map(d => ({id:d.id,...d.data()})));
+    });
+  }, []);
+  const update = async (id, status) => {
+    await updateDoc(doc(db, 'agencies', id), { status });
+    Alert.alert('✅ Fait');
+  };
+  return (
+    <View style={{flex:1,padding:20,backgroundColor:'#f7fafc'}}>
+      <Text style={{fontSize:20,fontWeight:'bold',marginBottom:12}}>👮 Admin</Text>
+      <FlatList data={list} keyExtractor={i=>i.id} renderItem={({item})=>(
+        <View style={{padding:12,marginBottom:8,borderRadius:8,backgroundColor:'#fff'}}>
+          <Text style={{fontWeight:'bold'}}>{item.name||item.id}</Text>
+          <Text>Statut: {item.status}</Text>
+          {item.status==='pending' && (
+            <View style={{flexDirection:'row',marginTop:8}}>
+              <TouchableOpacity onPress={()=>update(item.id,'verified')} style={{flex:1,backgroundColor:'#00aa55',padding:8,marginRight:4,borderRadius:6}}><Text style={{color:'#fff'}}>✅ Valider</Text></TouchableOpacity>
+              <TouchableOpacity onPress={()=>update(item.id,'rejected')} style={{flex:1,backgroundColor:'#c53030',padding:8,borderRadius:6}}><Text style={{color:'#fff'}}>❌ Refuser</Text></TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )} />
+    </View>
+  );
+}
