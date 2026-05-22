@@ -2,9 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-
-const db = getFirestore();
+import { db } from '../services/firebase'; // ✅ Importe db déjà initialisé
+import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 const COLORS = { 
   primary: '#1a365d', success: '#00aa55', warning: '#dd6b20', error: '#c53030', 

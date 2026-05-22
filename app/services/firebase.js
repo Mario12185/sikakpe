@@ -1,19 +1,21 @@
-// app/services/firebase.js
-import { initializeApp, getApps, getApp } from 'firebase/app';
+// 📦 app/services/firebase.js — INITIALISATION UNIQUE
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
-// ⚠️ CONFIG EN DUR REQUISE POUR GITHUB PAGES (les .env ne sont pas lus)
+// 🔐 Remplace par TES valeurs (Console Firebase > Paramètres du projet > Général)
 const firebaseConfig = {
-  apiKey: "AIzaSyApxSY6dCyhRCSU2qo6g0tFh14KnN84ZGM",
+  apiKey: "TA_API_KEY_ICI",
   authDomain: "sikakpe-togo.firebaseapp.com",
   projectId: "sikakpe-togo",
-  storageBucket: "sikakpe-togo.firebasestorage.app",
-  messagingSenderId: "1073940291184",
-  appId: "1:1073940291184:web:f29ea161da46358b645eb5"
+  storageBucket: "sikakpe-togo.appspot.com",
+  messagingSenderId: "TON_SENDER_ID",
+  appId: "TON_APP_ID"
 };
 
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// ✅ Initialise l'app AVANT toute autre chose
+const app = initializeApp(firebaseConfig);
+
+// 📤 Exporte les instances prêtes à l'emploi
 export const db = getFirestore(app);
 export const auth = getAuth(app);
-export default app;
