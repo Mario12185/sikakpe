@@ -1,21 +1,25 @@
-// 📦 app/services/firebase.js — INITIALISATION UNIQUE
+// 📦 app/services/firebase.js — INITIALISATION SIMPLE
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
-// 🔐 Remplace par TES valeurs (Console Firebase > Paramètres du projet > Général)
 const firebaseConfig = {
-  apiKey: "TA_API_KEY_ICI",
+  apiKey: "AIzaSy...", // ← Mets TES vraies valeurs ici
   authDomain: "sikakpe-togo.firebaseapp.com",
   projectId: "sikakpe-togo",
   storageBucket: "sikakpe-togo.appspot.com",
-  messagingSenderId: "TON_SENDER_ID",
-  appId: "TON_APP_ID"
+  messagingSenderId: "...",
+  appId: "..."
 };
 
-// ✅ Initialise l'app AVANT toute autre chose
 const app = initializeApp(firebaseConfig);
-
-// 📤 Exporte les instances prêtes à l'emploi
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// 🔐 Connexion auto anonyme (garanti)
+export const ensureAuth = async () => {
+  if (!auth.currentUser) {
+    await signInAnonymously(auth);
+  }
+  return auth.currentUser;
+};
