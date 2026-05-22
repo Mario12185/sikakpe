@@ -7,6 +7,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
+import AdminScreen from './app/screens/AdminScreen';
 
 // 🔐 Firebase
 import { auth, db } from './app/services/firebase';
@@ -224,6 +225,7 @@ function MainTabs() {
       <Tab.Screen name="Services" component={ServicesScreen} options={{ title: '📋 Prestations' }} />
       <Tab.Screen name="Sécurité" component={SecurityStack} options={{ title: '🛡️ Sécurité' }} />
       <Tab.Screen name="Paramètres" component={SettingsScreen} options={{ title: '⚙️ Paramètres' }} />
+      <Tab.Screen name="Admin" component={AdminScreen} options={{ title: '👮 Admin' }} />
     </Tab.Navigator>
   );
 }
