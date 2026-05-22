@@ -1,83 +1,46 @@
+// 📦 app/screens/AgencyVerificationScreen.js — MVP
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { getFirestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { View, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
 
-const storage = getStorage();
-const db = getFirestore();
-const auth = getAuth();
+const COLORS = { primary: '#1a365d', success: '#00aa55', background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568' };
 
 export default function AgencyVerificationScreen() {
-  const [uploading, setUploading] = useState(false);
-  const [status, setStatus] = useState(null);
+  const [status] = useState('pending'); // 'none' | 'pending' | 'verified' | 'rejected'
 
-  const pickAndUpload = async (type) => {
-    const { assets } = await ImagePicker.launchImageLibraryAsync({ mediaTypes: 'images', quality: 0.8 });
-    if (!assets?.[0]) return;
-    setUploading(true);
-    try {
-      const uri = assets[0].uri;
-      const fileName = `${type}_${Date.now()}.jpg`;
-      const storageRef = ref(storage, `agencies/${auth.currentUser.uid}/${fileName}`);
-      const res = await fetch(uri);
-      const blob = await res.blob();
-      await uploadBytes(storageRef, blob);
-      const url = await getDownloadURL(storageRef);
-      return { type, url };
-    } catch (e) {
-      Alert.alert('❌ Erreur', e.message);
-      return null;
-    } finally {
-      setUploading(false);
-    }
+  const getStatus = () => {
+    if (status === 'verified') return { label: '✅ Agence Vérifiée', color: COLORS.success, desc: 'Votre agence est approuvée et visible par les clients.' };
+    if (status === 'rejected') return { label: '❌ Vérification refusée', color: COLORS.error, desc: 'Contactez le support pour corriger les documents.' };
+    if (status === 'pending') return { label: '⏳ En attente', color: COLORS.warning, desc: 'Vos documents sont en cours de validation.' };
+    return { label: '📄 Non soumis', color: COLORS.textSecondary, desc: 'Soumettez vos documents pour obtenir le badge Vérifié.' };
   };
 
-  const submitVerification = async () => {
-    setUploading(true);
-    try {
-      // Exemple : upload licence + NINA + assurance
-      const docs = await Promise.all(['licence', 'nina', 'insurance'].map(pickAndUpload));
-      const validDocs = docs.filter(Boolean);
-      if (validDocs.length < 3) {
-        Alert.alert('⚠️ Incomplet', 'Veuillez fournir les 3 documents requis.');
-        setUploading(false); return;
-      }
-
-      const docData = {};
-      validDocs.forEach(d => docData[`${d.type}Url`] = d.url);
-      docData.status = 'pending';
-      docData.submittedAt = serverTimestamp();
-
-      await setDoc(doc(db, 'agencies', auth.currentUser.uid), docData, { merge: true });
-      setStatus('pending');
-      Alert.alert('✅ Envoyé', 'Votre demande de vérification est en cours de traitement.');
-    } catch (e) {
-      Alert.alert('❌ Échec', e.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  if (status) return <View style={styles.center}><Text style={styles.text}>📄 Statut : {status === 'pending' ? 'En attente de validation' : status}</Text></View>;
+  const s = getStatus();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>🛡️ Vérification d'Agence</Text>
-      <Text style={styles.desc}>Uploadez vos documents légaux pour obtenir le badge ✅ Vérifié</Text>
-      <TouchableOpacity style={styles.btn} onPress={submitVerification} disabled={uploading}>
-        {uploading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>📤 Envoyer les documents</Text>}
+    <ScrollView style={{ flex: 1, backgroundColor: COLORS.background, padding: 20 }}>
+      <View style={{ marginBottom: 24 }}><Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary }}>🛡️ Vérification Agence</Text><Text style={{ fontSize: 14, color: COLORS.textSecondary }}>Soumettez vos documents légaux pour être visible comme agence vérifiée.</Text></View>
+      
+      {/* Statut */}
+      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 20, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: s.color, elevation: 2 }}>
+        <Text style={{ fontSize: 18, fontWeight: '600', color: s.color, marginBottom: 4 }}>{s.label}</Text>
+        <Text style={{ fontSize: 14, color: COLORS.textSecondary }}>{s.desc}</Text>
+      </View>
+
+      {/* Documents requis */}
+      <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>📋 Documents requis</Text>
+      {['Licence d\'exploitation', 'Attestation NINA', 'Assurance responsabilité civile'].map((doc, i) => (
+        <View key={i} style={{ backgroundColor: COLORS.card, borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ fontSize: 14, color: COLORS.text }}>{doc}</Text>
+          <Ionicons name={status === 'verified' ? 'checkmark-circle' : 'cloud-upload-outline'} size={20} color={status === 'verified' ? COLORS.success : COLORS.textSecondary} />
+        </View>
+      ))}
+
+      {/* Bouton d'action */}
+      <TouchableOpacity style={{ backgroundColor: status === 'verified' ? COLORS.textSecondary : COLORS.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 8 }} onPress={() => Alert.alert('📤 Upload', 'Fonctionnalité d\'upload à venir. Pour l\'instant, envoyez vos documents par email à support@sikakpe.tg')}>
+        <Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>{status === 'verified' ? '✓ Vérifié' : '📤 Soumettre mes documents'}</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: 'center' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 22, fontWeight: 'bold', marginBottom: 10 },
-  desc: { fontSize: 14, color: '#555', marginBottom: 20 },
-  btn: { backgroundColor: '#0066CC', padding: 15, borderRadius: 8, alignItems: 'center' },
-  btnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 }
-});
+// Ajoute cet import en haut si Ionicons n'est pas déjà importé:
+import { Ionicons } from '@expo/vector-icons';

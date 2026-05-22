@@ -1,32 +1,46 @@
-// app/screens/SettingsScreen.js
+// 📦 app/screens/SettingsScreen.js — MVP
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, Switch } from 'react-native';
+import { auth } from '../services/firebase';
+
+const COLORS = { primary: '#1a365d', background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568', border: '#e2e8f0' };
 
 export default function SettingsScreen() {
+  const [darkMode, setDarkMode] = React.useState(false);
+
+  const handleLogout = () => {
+    Alert.alert('🔐 Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Déconnecter', style: 'destructive', onPress: async () => { await auth.signOut(); Alert.alert('✅ Déconnecté', 'À bientôt sur SikaKpɛ'); } }
+    ]);
+  };
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>⚙️ Paramètres</Text>
-        <Text style={styles.subtitle}>Personnaliser SikaKpɛ</Text>
+    <View style={{ flex: 1, backgroundColor: COLORS.background, padding: 20 }}>
+      <Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary, marginBottom: 24 }}>⚙️ Paramètres</Text>
+      
+      {/* Profil */}
+      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2 }}>
+        <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 }}>Compte</Text>
+        <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>{auth.currentUser?.uid ? 'Connecté (anonyme)' : 'Non connecté'}</Text>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardText}>✅ Fonctionnalité en développement</Text>
-        <Text style={styles.cardText}>🔜 Bientôt disponible :</Text>
-        <Text style={styles.bullet}>• Mode sombre / clair</Text>
-        <Text style={styles.bullet}>• Notifications push</Text>
-        <Text style={styles.bullet}>• Gestion du compte</Text>
-        <Text style={styles.bullet}>• Langue (Français / Ewe / Kabye)</Text>
+
+      {/* Préférences */}
+      <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>Préférences</Text>
+      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 }}>
+        <View><Text style={{ fontSize: 15, fontWeight: '500', color: COLORS.text }}>Mode sombre</Text><Text style={{ fontSize: 13, color: COLORS.textSecondary }}>Activer l'affichage sombre</Text></View>
+        <Switch value={darkMode} onValueChange={setDarkMode} trackColor={{ false: COLORS.border, true: COLORS.primary }} thumbColor="#fff" />
       </View>
-    </ScrollView>
+
+      {/* Informations */}
+      <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>Informations</Text>
+      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}><Text style={{ color: COLORS.textSecondary }}>Version</Text><Text style={{ color: COLORS.text }}>1.0.0</Text></View>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border }}><Text style={{ color: COLORS.textSecondary }}>Support</Text><Text style={{ color: COLORS.primary }}>support@sikakpe.tg</Text></View>
+      </View>
+
+      {/* Déconnexion */}
+      <TouchableOpacity style={{ backgroundColor: COLORS.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }} onPress={handleLogout}><Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>🔐 Se déconnecter</Text></TouchableOpacity>
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F4FF' },
-  header: { padding: 20, backgroundColor: '#1E40AF', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  card: { margin: 16, padding: 16, backgroundColor: '#FFF', borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
-  cardText: { fontSize: 14, color: '#1E293B', marginBottom: 8 },
-  bullet: { fontSize: 13, color: '#64748B', marginLeft: 8, marginBottom: 4 }
-});
