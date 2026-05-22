@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+@'
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Platform } from 'react-native';
 import { db, auth, ensureAuth } from '../services/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -64,3 +65,4 @@ export default function AgencyVerificationScreen() {
     </ScrollView>
   );
 }
+'@ | Out-File -FilePath "app/screens/AgencyVerificationScreen.js" -Encoding utf8

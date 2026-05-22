@@ -1,4 +1,6 @@
-﻿import { initializeApp } from 'firebase/app';
+﻿New-Item -ItemType Directory -Force -Path "app/services"
+@'
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
@@ -18,3 +20,4 @@ export const ensureAuth = async () => {
   if (!auth.currentUser) await signInAnonymously(auth);
   return auth.currentUser;
 };
+'@ | Out-File -FilePath "app/services/firebase.js" -Encoding utf8
