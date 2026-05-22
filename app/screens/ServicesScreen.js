@@ -1,9 +1,9 @@
-// 📦 app/screens/ServicesScreen.js — ROBUSTE + LOGS + GESTION ERREURS
+// 📦 app/screens/ServicesScreen.js — ENREGISTREMENT FIABLE + LOGS
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getFirestore, collection, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getFirestore, collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const db = getFirestore();
 const auth = getAuth();
@@ -22,53 +22,66 @@ export default function ServicesScreen() {
   const [newClient, setNewClient] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // 🔍 Écoute temps réel
   useEffect(() => {
     console.log('🔄 Écoute Firestore: collection services');
-    try {
-      const unsubscribe = onSnapshot(collection(db, 'services'),
-        (snapshot) => {
-          console.log(`📥 ${snapshot.size} documents reçus`);
-          const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setServices(list);
-          setLoading(false);
-          setError(null);
-        },
-        (err) => {
-          console.error('❌ ERREUR FIRESTORE:', err.code, err.message);
-          setError(err.message);
-          setLoading(false);
-        }
-      );
-      return () => { unsubscribe(); console.log('🔇 Listener nettoyé'); };
-    } catch (e) {
-      console.error('❌ SETUP ERROR:', e);
-      setError(e.message);
-      setLoading(false);
-    }
+    const unsubscribe = onSnapshot(collection(db, 'services'),
+      (snapshot) => {
+        console.log(`📥 ${snapshot.size} prestations reçues`);
+        setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        console.error('❌ FIRESTORE LISTEN ERROR:', err.code, err.message);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
   }, []);
 
+  // ➕ Création robuste
   const handleCreate = async () => {
+    console.log('👉 Début enregistrement...');
     if (!newTitle.trim() || !newClient.trim()) {
       Alert.alert('⚠️ Requis', 'Titre et Client sont obligatoires.');
       return;
     }
+    
+    // 🔐 Vérifier/Forcer l'auth
+    if (!auth.currentUser) {
+      console.log('⏳ Auth non prêt, connexion anonyme forcée...');
+      try {
+        await signInAnonymously(auth);
+        console.log('✅ Connecté:', auth.currentUser.uid);
+      } catch (e) {
+        Alert.alert('❌ Authentification', 'Impossible de se connecter. Réessaie.');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
-      console.log('➕ Création prestation...');
-      await addDoc(collection(db, 'services'), {
+      const payload = {
         title: newTitle.trim(),
         client: newClient.trim(),
         status: 'pending',
-        createdAt: serverTimestamp(),
-        createdBy: auth.currentUser?.uid || 'anonymous'
-      });
+        createdAt: new Date(), // Plus fiable que serverTimestamp() sur Web
+        createdBy: auth.currentUser.uid
+      };
+      console.log('📤 Envoi à Firestore:', payload);
+      
+      const docRef = await addDoc(collection(db, 'services'), payload);
+      console.log('✅ Document créé! ID:', docRef.id);
+      
       setNewTitle('');
       setNewClient('');
       setModalVisible(false);
-      Alert.alert('✅ Succès', 'Prestation enregistrée.');
+      Alert.alert('✅ Succès', 'Prestation enregistrée et visible dans la liste.');
     } catch (e) {
-      console.error('❌ CREATE ERROR:', e);
-      Alert.alert('❌ Échec', e.message);
+      console.error('❌ ADD_DOC ERROR:', e.code, e.message);
+      Alert.alert('❌ Échec', `Code: ${e.code}\nMessage: ${e.message}`);
     } finally {
       setSubmitting(false);
     }
@@ -84,17 +97,7 @@ export default function ServicesScreen() {
   };
 
   if (loading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}><ActivityIndicator size="large" color={COLORS.primary} /><Text style={{ marginTop: 10, color: COLORS.textSecondary }}>Chargement...</Text></View>;
-
-  if (error) return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: COLORS.background }}>
-      <Ionicons name="alert-circle-outline" size={48} color={COLORS.error} />
-      <Text style={{ marginTop: 12, fontSize: 16, fontWeight: '600', color: COLORS.error, textAlign: 'center' }}>Erreur Firestore</Text>
-      <Text style={{ marginTop: 8, color: COLORS.textSecondary, textAlign: 'center' }}>{error}</Text>
-      <TouchableOpacity style={{ marginTop: 20, backgroundColor: COLORS.primary, padding: 12, borderRadius: 8 }} onPress={() => window.location.reload()}>
-        <Text style={{ color: '#fff', fontWeight: '600' }}>🔄 Recharger</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  if (error) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: COLORS.background }}><Ionicons name="alert-circle" size={48} color={COLORS.error} /><Text style={{ marginTop: 10, color: COLORS.error, textAlign: 'center', fontWeight: '600' }}>Erreur Firestore</Text><Text style={{ marginTop: 5, color: COLORS.textSecondary }}>{error}</Text><TouchableOpacity style={{ marginTop: 16, backgroundColor: COLORS.primary, padding: 12, borderRadius: 8 }} onPress={() => window.location.reload()}><Text style={{ color: '#fff' }}>🔄 Recharger</Text></TouchableOpacity></View>;
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -102,11 +105,11 @@ export default function ServicesScreen() {
         data={services}
         keyExtractor={item => item.id}
         contentContainerStyle={{ padding: 20 }}
-        ListHeaderComponent={<View style={{ marginBottom: 16 }}><Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary }}>📋 Prestations</Text><Text style={{ fontSize: 14, color: COLORS.textSecondary }}>Liste synchronisée en temps réel</Text></View>}
+        ListHeaderComponent={<View style={{ marginBottom: 16 }}><Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary }}>📋 Prestations</Text><Text style={{ fontSize: 14, color: COLORS.textSecondary }}>Synchronisation temps réel active</Text></View>}
         ListEmptyComponent={<View style={{ alignItems: 'center', marginTop: 40 }}><Ionicons name="document-outline" size={48} color={COLORS.textSecondary} /><Text style={{ marginTop: 10, color: COLORS.textSecondary }}>Aucune prestation. Appuyez sur +</Text></View>}
         renderItem={({ item }) => {
           const badge = getStatusBadge(item.status);
-          const date = item.createdAt?.toDate ? item.createdAt.toDate().toLocaleDateString('fr-FR') : 'Date inconnue';
+          const date = item.createdAt instanceof Date ? item.createdAt.toLocaleDateString('fr-FR') : 'Date inconnue';
           return (
             <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: badge.text, elevation: 2 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>{item.title}</Text>
@@ -119,12 +122,12 @@ export default function ServicesScreen() {
         }}
       />
 
-      {/* 🟢 Bouton + */}
+      {/* 🟢 Bouton Flottant */}
       <TouchableOpacity style={{ position: 'absolute', bottom: 24, right: 24, backgroundColor: COLORS.primary, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 }} onPress={() => setModalVisible(true)}>
         <Ionicons name="add" size={28} color="#fff" />
       </TouchableOpacity>
 
-      {/* 📝 Modal */}
+      {/* 📝 Modal Formulaire */}
       <Modal visible={modalVisible} animationType="slide" transparent={true} onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onTouchStart={() => setModalVisible(false)}>
