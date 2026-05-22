@@ -1,16 +1,16 @@
-// 📦 app/screens/ServicesScreen.js — ENREGISTREMENT FIABLE + LOGS
+// 📦 app/screens/ServicesScreen.js — ACTIONS ADMIN + FIRESTORE UPDATE
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getFirestore, collection, onSnapshot, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 
 const db = getFirestore();
 const auth = getAuth();
 
-const COLORS = { 
-  primary: '#1a365d', success: '#00aa55', warning: '#dd6b20', error: '#c53030', 
-  background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568', border: '#e2e8f0' 
+const COLORS = {
+  primary: '#1a365d', success: '#00aa55', warning: '#dd6b20', error: '#c53030',
+  background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568', border: '#e2e8f0'
 };
 
 export default function ServicesScreen() {
@@ -24,10 +24,8 @@ export default function ServicesScreen() {
 
   // 🔍 Écoute temps réel
   useEffect(() => {
-    console.log('🔄 Écoute Firestore: collection services');
     const unsubscribe = onSnapshot(collection(db, 'services'),
       (snapshot) => {
-        console.log(`📥 ${snapshot.size} prestations reçues`);
         setServices(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setLoading(false);
         setError(null);
@@ -43,48 +41,48 @@ export default function ServicesScreen() {
 
   // ➕ Création robuste
   const handleCreate = async () => {
-    console.log('👉 Début enregistrement...');
     if (!newTitle.trim() || !newClient.trim()) {
       Alert.alert('⚠️ Requis', 'Titre et Client sont obligatoires.');
       return;
     }
-    
-    // 🔐 Vérifier/Forcer l'auth
     if (!auth.currentUser) {
-      console.log('⏳ Auth non prêt, connexion anonyme forcée...');
-      try {
-        await signInAnonymously(auth);
-        console.log('✅ Connecté:', auth.currentUser.uid);
-      } catch (e) {
-        Alert.alert('❌ Authentification', 'Impossible de se connecter. Réessaie.');
-        return;
-      }
+      try { await signInAnonymously(auth); } catch (e) { Alert.alert('❌ Auth', 'Connexion impossible.'); return; }
     }
-
     setSubmitting(true);
     try {
-      const payload = {
-        title: newTitle.trim(),
-        client: newClient.trim(),
-        status: 'pending',
-        createdAt: new Date(), // Plus fiable que serverTimestamp() sur Web
-        createdBy: auth.currentUser.uid
-      };
-      console.log('📤 Envoi à Firestore:', payload);
-      
-      const docRef = await addDoc(collection(db, 'services'), payload);
-      console.log('✅ Document créé! ID:', docRef.id);
-      
-      setNewTitle('');
-      setNewClient('');
-      setModalVisible(false);
-      Alert.alert('✅ Succès', 'Prestation enregistrée et visible dans la liste.');
+      await addDoc(collection(db, 'services'), {
+        title: newTitle.trim(), client: newClient.trim(), status: 'pending',
+        createdAt: new Date(), createdBy: auth.currentUser.uid
+      });
+      setNewTitle(''); setNewClient(''); setModalVisible(false);
+      Alert.alert('✅ Succès', 'Prestation enregistrée.');
     } catch (e) {
-      console.error('❌ ADD_DOC ERROR:', e.code, e.message);
-      Alert.alert('❌ Échec', `Code: ${e.code}\nMessage: ${e.message}`);
-    } finally {
-      setSubmitting(false);
-    }
+      Alert.alert('❌ Échec', e.message);
+    } finally { setSubmitting(false); }
+  };
+
+  // ✅❌ Changement de statut (Approuver / Refuser)
+  const handleStatusChange = async (id, currentStatus, newStatus) => {
+    const actionLabel = newStatus === 'approved' ? 'Approuver' : 'Refuser';
+    Alert.alert(
+      `🔐 Confirmer`,
+      `Voulez-vous vraiment ${actionLabel.toLowerCase()} cette prestation ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: actionLabel,
+          style: newStatus === 'approved' ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              await updateDoc(doc(db, 'services', id), { status: newStatus });
+              // ✅ Le Dashboard se met à jour AUTOMATIQUEMENT via onSnapshot
+            } catch (e) {
+              Alert.alert('❌ Échec', e.message);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getStatusBadge = (status) => {
@@ -104,19 +102,38 @@ export default function ServicesScreen() {
       <FlatList
         data={services}
         keyExtractor={item => item.id}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         ListHeaderComponent={<View style={{ marginBottom: 16 }}><Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary }}>📋 Prestations</Text><Text style={{ fontSize: 14, color: COLORS.textSecondary }}>Synchronisation temps réel active</Text></View>}
         ListEmptyComponent={<View style={{ alignItems: 'center', marginTop: 40 }}><Ionicons name="document-outline" size={48} color={COLORS.textSecondary} /><Text style={{ marginTop: 10, color: COLORS.textSecondary }}>Aucune prestation. Appuyez sur +</Text></View>}
         renderItem={({ item }) => {
           const badge = getStatusBadge(item.status);
           const date = item.createdAt instanceof Date ? item.createdAt.toLocaleDateString('fr-FR') : 'Date inconnue';
+          const isPending = item.status === 'pending';
           return (
             <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 12, borderLeftWidth: 4, borderLeftColor: badge.text, elevation: 2 }}>
-              <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>{item.title}</Text>
-              <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 4 }}>Client: {item.client} • {date}</Text>
-              <View style={{ marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: badge.bg, alignSelf: 'flex-start' }}>
-                <Text style={{ fontSize: 11, color: badge.text, fontWeight: '600' }}>{badge.label}</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>{item.title}</Text>
+                  <Text style={{ fontSize: 13, color: COLORS.textSecondary, marginTop: 4 }}>Client: {item.client} • {date}</Text>
+                  <View style={{ marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, backgroundColor: badge.bg, alignSelf: 'flex-start' }}>
+                    <Text style={{ fontSize: 11, color: badge.text, fontWeight: '600' }}>{badge.label}</Text>
+                  </View>
+                </View>
               </View>
+
+              {/* 👮 Boutons d'action Admin (uniquement si En attente) */}
+              {isPending && (
+                <View style={{ flexDirection: 'row', marginTop: 12 }}>
+                  <TouchableOpacity style={{ flex: 1, marginRight: 8, backgroundColor: COLORS.success, paddingVertical: 10, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }} onPress={() => handleStatusChange(item.id, item.status, 'approved')}>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Approuver</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={{ flex: 1, backgroundColor: COLORS.error, paddingVertical: 10, borderRadius: 8, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }} onPress={() => handleStatusChange(item.id, item.status, 'rejected')}>
+                    <Ionicons name="close-circle" size={18} color="#fff" style={{ marginRight: 6 }} />
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Refuser</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           );
         }}
