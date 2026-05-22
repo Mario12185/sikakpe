@@ -1,6 +1,6 @@
-// 📦 app/screens/AgencyVerificationScreen.js — MVP COMPLET (Base64 Firestore + Aperçu)
+// 📦 app/screens/AgencyVerificationScreen.js — MVP COMPLET + TÉLÉCHARGEMENT
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Platform, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ScrollView, ActivityIndicator, Platform, Image, Modal, Linking } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
@@ -14,13 +14,40 @@ const COLORS = {
   background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568' 
 };
 
+// 📥 Fonction de téléchargement universelle (Base64 → fichier)
+const downloadBase64Image = async (dataURI, filename) => {
+  try {
+    if (Platform.OS === 'web') {
+      // 🌐 Web : créer un lien de téléchargement
+      const link = document.createElement('a');
+      link.href = dataURI;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return true;
+    } else {
+      // 📱 Mobile : ouvrir l'image (download natif limité en PWA)
+      Alert.alert('📥 Image', 'Appuyez longuement sur l\'image pour l\'enregistrer dans votre galerie.', [
+        { text: 'OK' }
+      ]);
+      // Optionnel : ouvrir dans le navigateur pour download
+      await Linking.openURL(dataURI);
+      return true;
+    }
+  } catch (err) {
+    console.error('❌ Download error:', err);
+    Alert.alert('❌ Échec', 'Impossible de télécharger l\'image.');
+    return false;
+  }
+};
+
 export default function AgencyVerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [agencyData, setAgencyData] = useState(null);
   const [previewImage, setPreviewImage] = useState(null);
 
-  // 🔍 Charger les données de l'agence au montage
   useEffect(() => {
     const loadAgency = async () => {
       const userId = auth.currentUser?.uid;
@@ -35,7 +62,6 @@ export default function AgencyVerificationScreen() {
     loadAgency();
   }, []);
 
-  // 🖼️ Pick + convert to Base64 + save to Firestore
   const pickAndUpload = async (docType, docLabel) => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -81,7 +107,6 @@ export default function AgencyVerificationScreen() {
     }
   };
 
-  // 📤 Soumettre pour vérification
   const submitForVerification = async () => {
     const userId = auth.currentUser?.uid;
     if (!userId) { Alert.alert('🔐 Connexion requise', 'Veuillez vous connecter.'); return; }
@@ -102,7 +127,6 @@ export default function AgencyVerificationScreen() {
     finally { setUploading(false); }
   };
 
-  // 🎨 Statut display
   const getStatusDisplay = () => {
     const status = agencyData?.status || 'none';
     const map = {
@@ -148,9 +172,9 @@ export default function AgencyVerificationScreen() {
       <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>📋 Documents requis</Text>
       
       {[
-        { key: 'licenceUrl', label: 'Licence d\'exploitation', icon: 'business-outline' },
-        { key: 'ninaUrl', label: 'Attestation NINA', icon: 'id-card-outline' },
-        { key: 'insuranceUrl', label: 'Assurance RC', icon: 'shield-checkmark-outline' }
+        { key: 'licenceUrl', label: 'Licence d\'exploitation', icon: 'business-outline', filename: 'licence.jpg' },
+        { key: 'ninaUrl', label: 'Attestation NINA', icon: 'id-card-outline', filename: 'nina.jpg' },
+        { key: 'insuranceUrl', label: 'Assurance RC', icon: 'shield-checkmark-outline', filename: 'assurance.jpg' }
       ].map((d) => {
         const isUploaded = !!docs[d.key];
         return (
@@ -165,9 +189,10 @@ export default function AgencyVerificationScreen() {
               <View>
                 <Text style={{ fontSize: 14, fontWeight: isUploaded ? '600' : '500', color: isUploaded ? COLORS.success : COLORS.text }}>{d.label}</Text>
                 
-                {/* 👁️ Miniature cliquable OU bouton uploader */}
+                {/* 👁️ Miniature + Actions (Aperçu + Télécharger) */}
                 {isUploaded ? (
-                  <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ marginTop: 6, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Miniature cliquable */}
                     <TouchableOpacity onPress={() => setPreviewImage(docs[d.key])} style={{ marginRight: 8 }}>
                       <Image 
                         source={{ uri: docs[d.key] }} 
@@ -175,7 +200,18 @@ export default function AgencyVerificationScreen() {
                         resizeMode="cover" 
                       />
                     </TouchableOpacity>
-                    <Text style={{ fontSize: 12, color: COLORS.success, fontWeight: '500' }}>✓ Appuyer pour voir</Text>
+                    
+                    {/* Boutons d'action */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <TouchableOpacity 
+                        onPress={() => downloadBase64Image(docs[d.key], d.filename || 'document.jpg')}
+                        style={{ marginRight: 8, flexDirection: 'row', alignItems: 'center' }}
+                      >
+                        <Ionicons name="download-outline" size={16} color={COLORS.primary} />
+                        <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '500', marginLeft: 2 }}>Télécharger</Text>
+                      </TouchableOpacity>
+                      <Text style={{ fontSize: 11, color: COLORS.success, fontWeight: '500' }}>✓ Appuyer pour voir</Text>
+                    </View>
                   </View>
                 ) : (
                   <View style={{ backgroundColor: COLORS.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}>
@@ -216,7 +252,7 @@ export default function AgencyVerificationScreen() {
 
       {/* ℹ️ Info */}
       <View style={{ marginTop: 16, padding: 12, backgroundColor: '#ebf8ff', borderRadius: 12 }}>
-        <Text style={{ color: '#2c5282', fontSize: 13 }}>💡 Les images sont compressées et sauvegardées directement dans la base.</Text>
+        <Text style={{ color: '#2c5282', fontSize: 13 }}>💡 Cliquez sur "Télécharger" pour enregistrer le document sur votre appareil.</Text>
       </View>
 
       {/* 👁️ Visionneuse plein écran (Modal) */}
