@@ -1,19 +1,27 @@
-﻿// 📦 app/screens/DashboardScreen.js — VERSION SAAS AUDIT (KPIs temps réel)
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { db, auth, ensureAuth } from '../services/firebase';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
 export default function DashboardScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ sites: 0, checkinsToday: 0, totalCheckins: 0, compliance: 100 });
   const [recentActivity, setRecentActivity] = useState([]);
+  const [subInfo, setSubInfo] = useState(null);
 
   useEffect(() => {
     (async () => {
       await ensureAuth();
       const uid = auth.currentUser?.uid;
       if (!uid) return;
+
+      // 🔍 Charger infos abonnement
+      const subSnap = await getDoc(doc(db, 'subscriptions', uid));
+      if (subSnap.exists()) {
+        const data = subSnap.data();
+        const expiresAt = data.expiresAt?.toDate ? data.expiresAt.toDate() : null;
+        setSubInfo({ ...data, expiresAt, isActive: expiresAt ? expiresAt > new Date() : false });
+      }
 
       const todayStart = new Date(); todayStart.setHours(0,0,0,0);
       const todayTimestamp = todayStart.getTime() / 1000;
@@ -25,7 +33,6 @@ export default function DashboardScreen({ navigation }) {
       const unsubCheckins = onSnapshot(query(collection(db, 'checkins'), where('clientId', '==', uid)), snap => {
         let today = 0, valid = 0;
         const recent = [];
-        
         snap.docs.forEach(doc => {
           const data = doc.data();
           const ts = data.timestamp?.seconds || 0;
@@ -33,14 +40,8 @@ export default function DashboardScreen({ navigation }) {
           if (data.status === 'valid') valid++;
           if (recent.length < 5) recent.push({ id: doc.id, ...data });
         });
-
         const total = snap.size;
-        setStats(prev => ({
-          ...prev,
-          checkinsToday: today,
-          totalCheckins: total,
-          compliance: total > 0 ? Math.round((valid / total) * 100) : 100
-        }));
+        setStats(prev => ({ ...prev, checkinsToday: today, totalCheckins: total, compliance: total > 0 ? Math.round((valid / total) * 100) : 100 }));
         setRecentActivity(recent);
         setLoading(false);
       });
@@ -53,8 +54,23 @@ export default function DashboardScreen({ navigation }) {
 
   return (
     <ScrollView style={{flex:1, backgroundColor:'#f7fafc', padding:20}}>
-      <Text style={{fontSize:24, fontWeight:'700', color:'#1a365d', marginBottom:4}}>📊 Tableau de bord</Text>
-      <Text style={{fontSize:14, color:'#666', marginBottom:24}}>Vue d'ensemble de votre audit de sécurité</Text>
+      {/* 🎯 En-tête avec Badge Abonnement */}
+      <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:24}}>
+        <View>
+          <Text style={{fontSize:24, fontWeight:'700', color:'#1a365d'}}>📊 Tableau de bord</Text>
+          <Text style={{fontSize:14, color:'#666'}}>Vue d'ensemble de votre audit de sécurité</Text>
+        </View>
+        {subInfo && (
+          <View style={{backgroundColor: subInfo.planType==='company' ? '#fef3c7' : '#dbeafe', padding:10, borderRadius:10, borderLeftWidth:4, borderLeftColor: subInfo.planType==='company' ? '#d97706' : '#3b82f6', minWidth: 120}}>
+            <Text style={{fontSize:13, fontWeight:'bold', color:'#1f2937'}}>
+              {subInfo.planType==='company' ? '🏢 Entreprise' : '👤 Particulier'}
+            </Text>
+            <Text style={{fontSize:11, color:'#4b5563'}}>
+              {subInfo.isActive ? '✅ Actif' : '⚠️ Expiré'} • {subInfo.expiresAt ? subInfo.expiresAt.toLocaleDateString('fr-FR') : '-'}
+            </Text>
+          </View>
+        )}
+      </View>
 
       {/* 📊 KPI Cards */}
       <View style={{flexDirection:'row', flexWrap:'wrap', justifyContent:'space-between', marginBottom:24}}>
