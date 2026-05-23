@@ -33,6 +33,13 @@ export default function ReportsScreen() {
     const a = document.createElement('a'); a.href = url; a.download = `rapport_sikakpe_${new Date().toISOString().slice(0,10)}.csv`; a.click();
   };
 
+  const shareWhatsApp = (item) => {
+    if (!item) return;
+    const d = item.timestamp?.toDate ? item.timestamp.toDate() : new Date();
+    const text = `🛡️ *Alerte SikaKpé*\n✅ Présence gardien enregistrée\n📍 Site: ${item.siteName}\n🏢 Agence: ${item.agency}\n🕒 ${d.toLocaleTimeString('fr-FR')}\n📏 Distance: ${item.distance||0}m`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   if (loading) return <View style={{flex:1,justifyContent:'center'}}><ActivityIndicator /><Text>Chargement...</Text></View>;
 
   return (
@@ -48,10 +55,14 @@ export default function ReportsScreen() {
             <View style={{backgroundColor:'#fff',padding:14,marginBottom:10,borderRadius:10,borderLeftWidth:4,borderLeftColor:item.status==='valid'?'#00aa55':'#dd6b20'}}>
               <Text style={{fontWeight:'600'}}>{item.siteName || item.siteId}</Text>
               <Text style={{color:'#666',fontSize:12}}>{d.toLocaleDateString('fr-FR')} à {d.toLocaleTimeString('fr-FR')} • 🏢 {item.agency||'-'}</Text>
-              <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}>
+              <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6,alignItems:'center'}}>
                 <Text style={{color:item.status==='valid'?'#00aa55':'#dd6b20',fontWeight:'600'}}>{item.status==='valid'?'✅ Présence confirmée':'⚠️ Hors zone'}</Text>
                 <Text style={{color:'#666'}}>📏 {item.distance||0}m</Text>
               </View>
+              {/* 📤 Bouton WhatsApp */}
+              <TouchableOpacity onPress={()=>shareWhatsApp(item)} style={{marginTop:8,backgroundColor:'#25D366',paddingVertical:6,paddingHorizontal:10,borderRadius:6,alignItems:'center',width:180}}>
+                <Text style={{color:'#fff',fontSize:12,fontWeight:'600'}}>📤 Envoyer alerte WhatsApp</Text>
+              </TouchableOpacity>
             </View>
           );
         }} />
