@@ -1,28 +1,24 @@
-// 📦 App.js — SikaKpɛ — DESIGN PRO GARANTI (sans dépendance thème externe)
+// 📦 App.js — SikaKpɛ — VERSION COMPLÈTE CORRIGÉE
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { Platform, View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
-import AdminScreen from './app/screens/AdminScreen';
 
-// 🔐 Firebase
-import { auth, db } from './app/services/firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-
-// 🎨 Contexte Thème (optionnel — fallback intégré)
-import { ThemeProvider, useTheme } from './app/context/ThemeContext';
+// 🔐 Firebase (config réelle centralisée)
+import { db, auth, ensureAuth } from './app/services/firebase';
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 
 // 🖥️ Écrans existants
 import DashboardScreen from './app/screens/DashboardScreen';
 import ServicesScreen from './app/screens/ServicesScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
+import AdminScreen from './app/screens/AdminScreen';
 
 // 🛡️ Module Sécurité
-// ✅ CHEMIN CORRECT (app/screens existe)
 import CheckInScreen from './app/screens/CheckInScreen';
 import AgencyVerificationScreen from './app/screens/AgencyVerificationScreen';
 
@@ -33,25 +29,15 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
 // ─────────────────────────────────────────────────────────────
-// 🎨 PALETTE PRO — UTILISÉE PARTOUT (garantie cohérence)
+// 🔐 Stack Sécurité
 // ─────────────────────────────────────────────────────────────
-const COLORS = {
-  primary: '#1a365d',        // Bleu marine - autorité
-  primaryLight: '#2c5282',   // Bleu moyen - hover
-  success: '#00aa55',        // Vert - validation
-  warning: '#dd6b20',        // Orange - attention
-  error: '#c53030',          // Rouge - erreur
-  background: '#f7fafc',     // Fond clair
-  card: '#ffffff',           // Cartes
-  text: '#1a202c',           // Texte principal
-  textSecondary: '#4a5568',  // Texte secondaire
-  border: '#e2e8f0',         // Bordures
-};
-
-// 🔐 Stack Sécurité (dans App.js)
 function SecurityStack() {
   return (
-    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: '#fff' }, headerTintColor: '#1a202c' }}>
+    <Stack.Navigator screenOptions={{ 
+      headerStyle: { backgroundColor: '#fff' }, 
+      headerTintColor: '#1a202c',
+      headerBackTitle: 'Retour'
+    }}>
       <Stack.Screen name="SecurityMenu" component={SecurityMenuScreen} options={{ headerShown: false }} />
       <Stack.Screen name="CheckIn" component={CheckInScreen} options={{ title: '📍 Check-in' }} />
       <Stack.Screen name="AgencyVerification" component={AgencyVerificationScreen} options={{ title: '🛡️ Vérification' }} />
@@ -59,34 +45,8 @@ function SecurityStack() {
   );
 }
 
-// 🧭 Menu Sécurité (simple)
-function SecurityMenuScreen({ navigation }) {
-  return (
-    <View style={{ flex: 1, padding: 20, backgroundColor: '#f7fafc' }}>
-      <Text style={{ fontSize: 24, fontWeight: 'bold', color: '#1a365d', marginBottom: 8 }}>🛡️ Sécurité & Contrôle</Text>
-      <Text style={{ color: '#666', marginBottom: 24 }}>Validez la présence des gardiens et gérez les agréments.</Text>
-      
-      <TouchableOpacity 
-        style={{ backgroundColor: '#fff', padding: 20, borderRadius: 16, marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#1a365d', elevation: 2 }}
-        onPress={() => navigation.navigate('CheckIn')}
-      >
-        <Text style={{ fontSize: 18, fontWeight: '600' }}>📍 Check-in QR/GPS</Text>
-        <Text style={{ color: '#666', marginTop: 4 }}>Scanner ou saisir un code de site</Text>
-      </TouchableOpacity>
-      
-      <TouchableOpacity 
-        style={{ backgroundColor: '#fff', padding: 20, borderRadius: 16, borderLeftWidth: 4, borderLeftColor: '#00aa55', elevation: 2 }}
-        onPress={() => navigation.navigate('AgencyVerification')}
-      >
-        <Text style={{ fontSize: 18, fontWeight: '600' }}>🛡️ Vérification Agence</Text>
-        <Text style={{ color: '#666', marginTop: 4 }}>Soumettre vos documents légaux</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 // ─────────────────────────────────────────────────────────────
-// 🧭 Menu Sécurité — DESIGN PRO & ORIENTÉ ACTION
+// 🧭 Menu Sécurité — DESIGN PRO & ORIENTÉ ACTION (UNIQUE DÉCLARATION)
 // ─────────────────────────────────────────────────────────────
 function SecurityMenuScreen({ navigation }) {
   return (
@@ -150,56 +110,38 @@ function SecurityMenuScreen({ navigation }) {
         </View>
       </TouchableOpacity>
 
-      {/* ℹ️ Info pro (remplace l'astuce dév) */}
+      {/* ℹ️ Info pro */}
       <View style={{ marginTop: 8, padding: 12, backgroundColor: '#fff', borderRadius: 10, borderLeftWidth: 3, borderLeftColor: '#dd6b20' }}>
         <Text style={{ fontSize: 12, color: '#718096', lineHeight: 16 }}>
-          🔒 <Text style={{ fontWeight: '500' }}>Confidentialité :</Text> Vos données de présence et documents sont sécurisés et visibles uniquement par l'administration SikaKpɛ.
+          🔒 <Text style={{ fontWeight: '500' }}>Confidentialité :</Text> Vos données sont sécurisées et visibles uniquement par l'administration SikaKpɛ.
         </Text>
       </View>
-
     </View>
   );
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🧭 Navigation principale (Bottom Tabs) — COULEURS GARANTIES
+// 🧭 Navigation principale (Bottom Tabs)
 // ─────────────────────────────────────────────────────────────
 function MainTabs() {
-  // 🎨 Fallback sécurisé pour le thème (optionnel)
-  let themeColors = COLORS;
-  try {
-    const theme = useTheme?.();
-    if (theme?.colors) themeColors = { ...COLORS, ...theme.colors };
-  } catch (e) {
-    console.warn('⚠️ Theme non disponible, utilisation des couleurs par défaut');
-  }
-
-  const getTabOptions = ({ route }) => ({
-    tabBarIcon: ({ color, size }) => {
-      const icons = {
-        Dashboard: 'home-outline',
-        Services: 'list-outline',
-        Sécurité: 'shield-checkmark-outline',
-        Paramètres: 'settings-outline',
-      };
-      return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
-    },
-    tabBarActiveTintColor: COLORS.primary,        // ← Bleu marine pro
-    tabBarInactiveTintColor: COLORS.textSecondary,
-    tabBarStyle: { 
-      backgroundColor: COLORS.card, 
-      borderTopColor: COLORS.border,
-      paddingBottom: 6,
-      paddingTop: 6,
-      height: 60
-    },
-    headerStyle: { backgroundColor: COLORS.card, elevation: 0, shadowOpacity: 0 },
-    headerTintColor: COLORS.text,
-    headerTitleStyle: { fontWeight: '600', fontSize: 17 }
-  });
-  
   return (
-    <Tab.Navigator screenOptions={getTabOptions}>
+    <Tab.Navigator screenOptions={({ route }) => ({
+      tabBarIcon: ({ color, size }) => {
+        const icons = {
+          Dashboard: 'home-outline',
+          Services: 'list-outline',
+          Sécurité: 'shield-checkmark-outline',
+          Paramètres: 'settings-outline',
+          Admin: 'people-outline'
+        };
+        return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
+      },
+      tabBarActiveTintColor: '#1a365d',
+      tabBarInactiveTintColor: '#666',
+      tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#e2e8f0', paddingBottom: 6, paddingTop: 6, height: 60 },
+      headerStyle: { backgroundColor: '#fff', elevation: 0 },
+      headerTintColor: '#1a202c'
+    })}>
       <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: '📊 Tableau de bord' }} />
       <Tab.Screen name="Services" component={ServicesScreen} options={{ title: '📋 Prestations' }} />
       <Tab.Screen name="Sécurité" component={SecurityStack} options={{ title: '🛡️ Sécurité' }} />
@@ -210,7 +152,7 @@ function MainTabs() {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 🎯 Composant principal App (Auth + PWA + Splash)
+// 🎯 Composant principal App (Auth + Splash + PWA)
 // ─────────────────────────────────────────────────────────────
 function AppContent() {
   const [user, setUser] = useState(null);
@@ -238,7 +180,7 @@ function AppContent() {
     }
   }, []);
 
-  // 🔐 Auth Firebase
+  // 🔐 Auth Firebase anonyme
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -246,22 +188,24 @@ function AppContent() {
           setUser(currentUser);
           setLoading(false);
         });
-        if (!auth.currentUser) await signInAnonymously(auth);
+        if (!auth.currentUser) {
+          await signInAnonymously(auth);
+        }
         return unsubscribe;
       } catch (e) {
         console.error('❌ Auth error:', e);
-        Alert.alert('Erreur de connexion', 'Veuillez réessayer.');
         setLoading(false);
       }
     };
     initAuth();
   }, []);
 
+  // 🎨 Loading fallback
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.background }}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ color: COLORS.text, marginTop: 10, fontSize: 14 }}>Chargement...</Text>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f7fafc' }}>
+        <ActivityIndicator size="large" color="#1a365d" />
+        <Text style={{ color: '#1a202c', marginTop: 10 }}>Chargement...</Text>
       </View>
     );
   }
@@ -279,9 +223,5 @@ function AppContent() {
 // 🚀 Export final
 // ─────────────────────────────────────────────────────────────
 export default function App() {
-  return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
-  );
+  return <AppContent />;
 }
