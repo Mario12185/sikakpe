@@ -3,21 +3,19 @@ import { View, Text, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
 
 import { auth } from './app/services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
+import AuthScreen from './app/screens/AuthScreen';
 import DashboardScreen from './app/screens/DashboardScreen';
 import SitesScreen from './app/screens/SitesScreen';
 import ReportsScreen from './app/screens/ReportsScreen';
 import SubscriptionScreen from './app/screens/SubscriptionScreen';
 import CheckInScreen from './app/screens/CheckInScreen';
 import PublicCheckInScreen from './app/screens/PublicCheckInScreen';
-import AuthScreen from './app/screens/AuthScreen';
 
-SplashScreen.preventAutoHideAsync();
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
@@ -42,25 +40,43 @@ function MainTabs() {
 }
 
 export default function App() {
-  const [user, setUser] = useState(undefined); // undefined = chargement, null = pas connecté, object = connecté
+  const [user, setUser] = useState(null);
+  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    // 🔍 Écoute l'état d'authentification SANS forcer de connexion
-    const unsub = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser || null);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setInitializing(false);
+      console.log('✅ Auth state changed:', currentUser ? 'Connecté' : 'Non connecté');
     });
-    return unsub;
+
+    // 🔒 Timeout de sécurité : si Firebase ne répond pas en 5s, on affiche AuthScreen
+    const timer = setTimeout(() => {
+      if (initializing) {
+        console.warn('⏳ Auth timeout - fallback vers login');
+        setInitializing(false);
+        setUser(null);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
-  // ⏳ Affiche un loader tant que Firebase vérifie l'état de connexion
-  if (user === undefined) {
-    return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Vérification...</Text></View>;
+  if (initializing) {
+    return (
+      <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#f7fafc'}}>
+        <ActivityIndicator size="large" color="#1a365d" />
+        <Text style={{marginTop:10, color:'#666'}}>Initialisation...</Text>
+      </View>
+    );
   }
 
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        {/* ✅ Si user = null → AuthScreen, sinon → MainTabs */}
         {user ? <MainTabs /> : <AuthScreen />}
       </NavigationContainer>
     </SafeAreaProvider>
