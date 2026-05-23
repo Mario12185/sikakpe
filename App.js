@@ -1,8 +1,7 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { createStackNavigator } from '@react-navigation/stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,38 +17,9 @@ import CheckInScreen from './app/screens/CheckInScreen';
 
 SplashScreen.preventAutoHideAsync();
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
 
-function MainTabs() {
-  return (
-    <Tab.Navigator screenOptions={({ route }) => ({
-      tabBarIcon: ({ color, size }) => {
-        const icons = { 
-          Dashboard: 'stats-chart-outline', 
-          'Mes Sites': 'location-outline', 
-          Rapports: 'document-text-outline', 
-          Abonnement: 'card-outline',
-          CheckIn: 'scan-outline' 
-        };
-        return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
-      },
-      tabBarActiveTintColor: '#1a365d', 
-      tabBarInactiveTintColor: '#999',
-      tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#eee', height: 60, paddingBottom: 5 },
-      headerStyle: { backgroundColor: '#fff', elevation: 0 }, 
-      headerTintColor: '#1a202c'
-    })}>
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: '📊 Tableau de bord' }} />
-      <Tab.Screen name="Mes Sites" component={SitesScreen} options={{ title: '📍 Mes Sites' }} />
-      <Tab.Screen name="Rapports" component={ReportsScreen} options={{ title: '📋 Rapports' }} />
-      <Tab.Screen name="Abonnement" component={SubscriptionScreen} options={{ title: '💳 Abonnement' }} />
-      {/* Onglet Check-in visible dans la barre (ou caché si tu préfères) */}
-      <Tab.Screen name="CheckIn" component={CheckInScreen} options={{ title: '🛡️ Check-in' }} />
-    </Tab.Navigator>
-  );
-}
-
-function AppContent() {
+// ✅ Export direct et correct du composant principal
+export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -57,7 +27,6 @@ function AppContent() {
     let unsub;
     const init = async () => {
       try {
-        console.log('🔄 Initialisation Firebase...');
         await ensureAuth();
         unsub = onAuthStateChanged(auth, () => setLoading(false));
       } catch (e) {
@@ -74,7 +43,7 @@ function AppContent() {
     return (
       <View style={{flex:1,justifyContent:'center',alignItems:'center',padding:20,backgroundColor:'#fff'}}>
         <Text style={{color:'red',fontSize:16,fontWeight:'bold'}}>Erreur Critique</Text>
-        <Text style={{color:'#666',marginTop:10}}>{error}</Text>
+        <Text style={{color:'#666',marginTop:10,textAlign:'center'}}>{error}</Text>
       </View>
     );
   }
@@ -84,10 +53,22 @@ function AppContent() {
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <MainTabs />
+        <Tab.Navigator screenOptions={({ route }) => ({
+          tabBarIcon: ({ color, size }) => {
+            const icons = { Dashboard: 'stats-chart-outline', 'Mes Sites': 'location-outline', Rapports: 'document-text-outline', Abonnement: 'card-outline', CheckIn: 'scan-outline' };
+            return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
+          },
+          tabBarActiveTintColor: '#1a365d', tabBarInactiveTintColor: '#999',
+          tabBarStyle: { backgroundColor: '#fff', borderTopColor: '#eee', height: 60, paddingBottom: 5 },
+          headerStyle: { backgroundColor: '#fff', elevation: 0 }, headerTintColor: '#1a202c'
+        })}>
+          <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: '📊 Tableau de bord' }} />
+          <Tab.Screen name="Mes Sites" component={SitesScreen} options={{ title: '📍 Mes Sites' }} />
+          <Tab.Screen name="Rapports" component={ReportsScreen} options={{ title: '📋 Rapports' }} />
+          <Tab.Screen name="Abonnement" component={SubscriptionScreen} options={{ title: '💳 Abonnement' }} />
+          <Tab.Screen name="CheckIn" component={CheckInScreen} options={{ title: '🛡️ Check-in' }} />
+        </Tab.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
   );
 }
-
-export default App;
