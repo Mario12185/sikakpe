@@ -1,31 +1,60 @@
-// app/screens/ReportsScreen.js
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+﻿import React, { useState, useEffect } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { db, auth, ensureAuth } from '../services/firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 export default function ReportsScreen() {
+  const [checkins, setCheckins] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      await ensureAuth();
+      const uid = auth.currentUser?.uid;
+      if (!uid) return;
+      const q = query(collection(db, 'checkins'), where('clientId', '==', uid));
+      return onSnapshot(q, snap => {
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a,b) => b.timestamp?.seconds - a.timestamp?.seconds);
+        setCheckins(list);
+        setLoading(false);
+      });
+    })();
+  }, []);
+
+  const exportCSV = () => {
+    const headers = ['Date','Heure','Site','Agence','Gardien','Distance','Statut'];
+    const rows = checkins.map(c => {
+      const d = c.timestamp?.toDate ? c.timestamp.toDate() : new Date();
+      return [d.toLocaleDateString('fr-FR'), d.toLocaleTimeString('fr-FR'), c.siteName||'-', c.agency||'-', c.guard||'-', `${c.distance||0}m`, c.status||'-'].join(',');
+    });
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `rapport_sikakpe_${new Date().toISOString().slice(0,10)}.csv`; a.click();
+  };
+
+  if (loading) return <View style={{flex:1,justifyContent:'center'}}><ActivityIndicator /><Text>Chargement...</Text></View>;
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>📈 Rapports</Text>
-        <Text style={styles.subtitle}>Générer et exporter des rapports</Text>
+    <View style={{flex:1,backgroundColor:'#f7fafc',padding:20}}>
+      <View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:16}}>
+        <Text style={{fontSize:22,fontWeight:'bold'}}>📋 Rapports & Preuves</Text>
+        <TouchableOpacity onPress={exportCSV} style={{backgroundColor:'#00aa55',paddingVertical:8,paddingHorizontal:14,borderRadius:8}}><Text style={{color:'#fff',fontWeight:'600'}}>📥 Export CSV</Text></TouchableOpacity>
       </View>
-      <View style={styles.card}>
-        <Text style={styles.cardText}>✅ Fonctionnalité en développement</Text>
-        <Text style={styles.cardText}>🔜 Bientôt disponible :</Text>
-        <Text style={styles.bullet}>• Export PDF / TXT</Text>
-        <Text style={styles.bullet}>• Partage WhatsApp / Email</Text>
-        <Text style={styles.bullet}>• Statistiques mensuelles</Text>
-      </View>
-    </ScrollView>
+      <FlatList data={checkins} keyExtractor={i=>i.id} ListEmptyComponent={<Text style={{color:'#666',textAlign:'center',marginTop:40}}>Aucun check-in enregistré.</Text>}
+        renderItem={({item}) => {
+          const d = item.timestamp?.toDate ? item.timestamp.toDate() : new Date();
+          return (
+            <View style={{backgroundColor:'#fff',padding:14,marginBottom:10,borderRadius:10,borderLeftWidth:4,borderLeftColor:item.status==='valid'?'#00aa55':'#dd6b20'}}>
+              <Text style={{fontWeight:'600'}}>{item.siteName || item.siteId}</Text>
+              <Text style={{color:'#666',fontSize:12}}>{d.toLocaleDateString('fr-FR')} à {d.toLocaleTimeString('fr-FR')} • 🏢 {item.agency||'-'}</Text>
+              <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:6}}>
+                <Text style={{color:item.status==='valid'?'#00aa55':'#dd6b20',fontWeight:'600'}}>{item.status==='valid'?'✅ Présence confirmée':'⚠️ Hors zone'}</Text>
+                <Text style={{color:'#666'}}>📏 {item.distance||0}m</Text>
+              </View>
+            </View>
+          );
+        }} />
+    </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F4FF' },
-  header: { padding: 20, backgroundColor: '#1E40AF', borderBottomLeftRadius: 20, borderBottomRightRadius: 20 },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#FFF' },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
-  card: { margin: 16, padding: 16, backgroundColor: '#FFF', borderRadius: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
-  cardText: { fontSize: 14, color: '#1E293B', marginBottom: 8 },
-  bullet: { fontSize: 13, color: '#64748B', marginLeft: 8, marginBottom: 4 }
-});
