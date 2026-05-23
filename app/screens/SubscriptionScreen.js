@@ -1,10 +1,10 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { db, auth, ensureAuth } from '../services/firebase';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function SubscriptionScreen({ navigation }) {
-  const [sub, setSub] = useState({ status: 'inactive', expiresAt: null });
+  const [sub, setSub] = useState({ status: 'inactive', expiresAt: null, planType: null, amount: 0 });
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -23,7 +23,7 @@ export default function SubscriptionScreen({ navigation }) {
     })();
   }, []);
 
-  const activateSubscription = async () => {
+  const activateSubscription = async (planType, amount) => {
     setProcessing(true);
     try {
       const uid = auth.currentUser?.uid;
@@ -31,15 +31,14 @@ export default function SubscriptionScreen({ navigation }) {
       expiresAt.setMonth(expiresAt.getMonth() + 1); // +30 jours
 
       await setDoc(doc(db, 'subscriptions', uid), {
-        clientId: uid, amount: 10000, currency: 'XOF', period: 'monthly',
-        status: 'active', startedAt: serverTimestamp(), expiresAt: expiresAt,
+        clientId: uid, amount, currency: 'XOF', period: 'monthly',
+        planType, status: 'active', startedAt: serverTimestamp(), expiresAt,
         lastPaymentMethod: 'MVP_SIMULATION'
       }, { merge: true });
 
-      setSub({ status: 'active', expiresAt, isActive: true });
-      Alert.alert('✅ Abonnement activé', `Valide jusqu'au ${expiresAt.toLocaleDateString('fr-FR')}`);
-      
-      // 🔔 Redirection vers Dashboard si navigation dispo
+      setSub({ status: 'active', expiresAt, isActive: true, planType, amount });
+      const label = planType === 'company' ? 'Entreprise / Administration' : 'Particulier';
+      Alert.alert('✅ Abonnement activé', `Profil : ${label}\nMontant : ${amount.toLocaleString('fr-FR')} FCFA\nValide jusqu'au ${expiresAt.toLocaleDateString('fr-FR')}`);
       navigation?.navigate?.('Dashboard');
     } catch (e) {
       Alert.alert('❌ Échec', e.message);
@@ -52,41 +51,46 @@ export default function SubscriptionScreen({ navigation }) {
 
   return (
     <View style={{flex:1,backgroundColor:'#f7fafc',padding:20,justifyContent:'center'}}>
-      <View style={{backgroundColor:'#fff',padding:24,borderRadius:16,elevation:3}}>
-        <Text style={{fontSize:22,fontWeight:'bold',color:'#1a365d',textAlign:'center',marginBottom:8}}>💳 Abonnement SikaKpɛ</Text>
-        <Text style={{color:'#666',textAlign:'center',marginBottom:20,fontSize:14}}>Outil d'audit indépendant • 10 000 FCFA / mois</Text>
-        
-        <View style={{
-          backgroundColor: sub.isActive ? '#d1fae5' : '#fee2e2', 
-          padding: 16, borderRadius: 12, marginBottom: 24, alignItems: 'center',
-          borderLeftWidth: 4, borderLeftColor: sub.isActive ? '#065f46' : '#991b1b'
-        }}>
-          <Text style={{fontWeight:'bold',fontSize:16,color: sub.isActive ? '#065f46' : '#991b1b'}}>
-            {sub.isActive ? '🟢 Actif' : '🔴 Expiré / Inactif'}
+      <Text style={{fontSize:22,fontWeight:'bold',color:'#1a365d',textAlign:'center',marginBottom:8}}>💳 Choisissez votre abonnement</Text>
+      <Text style={{color:'#666',textAlign:'center',marginBottom:24,fontSize:14}}>Sélectionnez votre profil pour activer l'audit SikaKpɛ</Text>
+
+      {sub.isActive ? (
+        <View style={{backgroundColor:'#d1fae5', padding:16, borderRadius:12, alignItems:'center', marginBottom:16, borderLeftWidth:4, borderLeftColor:'#065f46'}}>
+          <Text style={{fontWeight:'bold',fontSize:16,color:'#065f46'}}>
+            🟢 Actif ({sub.planType === 'company' ? 'Entreprise/Admin' : 'Particulier'})
           </Text>
-          {sub.expiresAt && <Text style={{marginTop:4,fontSize:13,color:'#4a5568'}}>Expire le : {sub.expiresAt.toLocaleDateString('fr-FR')}</Text>}
+          <Text style={{marginTop:4,fontSize:13,color:'#4a5568'}}>Expire le : {sub.expiresAt?.toLocaleDateString('fr-FR')}</Text>
+          <TouchableOpacity onPress={()=>navigation.navigate('Dashboard')} style={{marginTop:12,backgroundColor:'#1a365d',paddingVertical:10,paddingHorizontal:20,borderRadius:8}}>
+            <Text style={{color:'#fff',fontWeight:'600'}}>Accéder au Tableau de bord</Text>
+          </TouchableOpacity>
         </View>
+      ) : (
+        <>
+          <TouchableOpacity 
+            onPress={()=>activateSubscription('company', 10000)} 
+            disabled={processing}
+            style={{backgroundColor:'#fff',padding:20,borderRadius:12,marginBottom:12,elevation:2,borderLeftWidth:4,borderLeftColor:'#1a365d'}}
+          >
+            <Text style={{fontSize:18,fontWeight:'bold',color:'#1a202c'}}>🏢 Entreprise / Administration</Text>
+            <Text style={{color:'#666',marginTop:4}}>Suivi multi-sites, rapports avancés, support prioritaire</Text>
+            <Text style={{fontSize:20,fontWeight:'bold',color:'#1a365d',marginTop:8}}>10 000 FCFA <Text style={{fontSize:12,color:'#666',fontWeight:'normal'}}>/ mois</Text></Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity 
-          onPress={activateSubscription} 
-          disabled={processing || sub.isActive}
-          style={{
-            backgroundColor: sub.isActive ? '#666' : '#1a365d', 
-            padding: 16, borderRadius: 12, alignItems: 'center',
-            opacity: processing ? 0.7 : 1
-          }}
-        >
-          {processing ? <ActivityIndicator color="#fff" /> : (
-            <Text style={{color:'#fff',fontWeight:'bold',fontSize:16}}>
-              {sub.isActive ? '✅ Déjà activé' : 'Payer 10 000 FCFA'}
-            </Text>
-          )}
-        </TouchableOpacity>
+          <TouchableOpacity 
+            onPress={()=>activateSubscription('individual', 5000)} 
+            disabled={processing}
+            style={{backgroundColor:'#fff',padding:20,borderRadius:12,elevation:2,borderLeftWidth:4,borderLeftColor:'#3182ce'}}
+          >
+            <Text style={{fontSize:18,fontWeight:'bold',color:'#1a202c'}}>👤 Particulier</Text>
+            <Text style={{color:'#666',marginTop:4}}>Suivi personnel, alertes basiques, export simple</Text>
+            <Text style={{fontSize:20,fontWeight:'bold',color:'#3182ce',marginTop:8}}>5 000 FCFA <Text style={{fontSize:12,color:'#666',fontWeight:'normal'}}>/ mois</Text></Text>
+          </TouchableOpacity>
+        </>
+      )}
 
-        <Text style={{fontSize:11,color:'#999',textAlign:'center',marginTop:16}}>
-          🔒 Paiement simulé pour MVP. Intégration CinetPay / Orange Money Togo disponible sur demande.
-        </Text>
-      </View>
+      <Text style={{fontSize:11,color:'#999',textAlign:'center',marginTop:24}}>
+        🔒 Paiement simulé pour MVP. Intégration CinetPay / Orange Money Togo disponible sur demande.
+      </Text>
     </View>
   );
 }
