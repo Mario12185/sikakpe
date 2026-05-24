@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView, Platform } from 'react-native';
 import { auth, db } from '../services/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
@@ -11,17 +11,12 @@ export default function SettingsScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    console.log('⚙️ SettingsScreen mounted');
     const load = async () => {
       try {
         const uid = auth.currentUser?.uid;
-        console.log('👤 Loading profile for UID:', uid);
         if (!uid) { setLoading(false); return; }
         const userSnap = await getDoc(doc(db, 'users', uid));
-        if (userSnap.exists()) {
-          console.log('✅ Profile loaded:', userSnap.data().displayName);
-          setProfile(userSnap.data());
-        }
+        if (userSnap.exists()) setProfile(userSnap.data());
         const subSnap = await getDoc(doc(db, 'subscriptions', uid));
         if (subSnap.exists()) {
           const data = subSnap.data();
@@ -39,27 +34,41 @@ export default function SettingsScreen() {
       setLoggingOut(true);
       console.log('🔄 Calling signOut...');
       await signOut(auth);
-      console.log('✅ signOut succeeded - App.js should now show AuthScreen');
-      // ✅ onAuthStateChanged dans App.js détecte user=null et affiche AuthScreen automatiquement
+      console.log('✅ signOut succeeded');
+      // ✅ onAuthStateChanged dans App.js détecte user=null et affiche AuthScreen
     } catch (e) {
       console.error('❌ SignOut error:', e);
-      Alert.alert('❌ Échec', 'Impossible de se déconnecter. Vérifiez votre connexion.');
+      if (Platform.OS === 'web') {
+        window.alert('❌ Déconnexion échouée: ' + e.message);
+      } else {
+        Alert.alert('❌ Échec', 'Impossible de se déconnecter.');
+      }
       setLoggingOut(false);
     }
   };
 
   const confirmLogout = () => {
     console.log('🔘 confirmLogout called');
+    
+    // ✅ Web: utiliser window.confirm (100% fiable)
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const confirmed = window.confirm('🚪 Voulez-vous vraiment quitter votre session ?');
+      if (confirmed) {
+        console.log('✅ Logout confirmed (Web)');
+        handleLogout();
+      } else {
+        console.log('❌ Logout cancelled (Web)');
+      }
+      return;
+    }
+    
+    // 📱 Mobile: garder Alert.alert
     Alert.alert(
       '🚪 Déconnexion',
       'Voulez-vous vraiment quitter votre session ?',
       [
-        { text: 'Annuler', style: 'cancel', onPress: () => console.log('❌ Logout cancelled') },
-        { 
-          text: 'Oui, déconnecter', 
-          style: 'destructive', 
-          onPress: () => { console.log('✅ Logout confirmed'); handleLogout(); } 
-        }
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Oui, déconnecter', style: 'destructive', onPress: () => handleLogout() }
       ]
     );
   };
