@@ -15,6 +15,7 @@ import ReportsScreen from './app/screens/ReportsScreen';
 import SubscriptionScreen from './app/screens/SubscriptionScreen';
 import CheckInScreen from './app/screens/CheckInScreen';
 import PublicCheckInScreen from './app/screens/PublicCheckInScreen';
+import SettingsScreen from './app/screens/SettingsScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -22,7 +23,7 @@ function MainTabs() {
   return (
     <Tab.Navigator screenOptions={({ route }) => ({
       tabBarIcon: ({ color, size }) => {
-        const icons = { Dashboard: 'stats-chart-outline', 'Mes Sites': 'location-outline', Rapports: 'document-text-outline', Abonnement: 'card-outline' };
+        const icons = { Dashboard: 'stats-chart-outline', 'Mes Sites': 'location-outline', Rapports: 'document-text-outline', Abonnement: 'card-outline', Paramètres: 'settings-outline' };
         return <Ionicons name={icons[route.name] || 'circle-outline'} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#1a365d', tabBarInactiveTintColor: '#999',
@@ -33,6 +34,7 @@ function MainTabs() {
       <Tab.Screen name="Mes Sites" component={SitesScreen} options={{ title: '📍 Mes Sites' }} />
       <Tab.Screen name="Rapports" component={ReportsScreen} options={{ title: '📋 Rapports' }} />
       <Tab.Screen name="Abonnement" component={SubscriptionScreen} options={{ title: '💳 Abonnement' }} />
+      <Tab.Screen name="Paramètres" component={SettingsScreen} options={{ title: '⚙️ Paramètres' }} />
       <Tab.Screen name="CheckIn" component={CheckInScreen} options={{ title: '🛡️ Check-in' }} />
       <Tab.Screen name="CheckInPublic" component={PublicCheckInScreen} options={{ tabBarButton: () => null }} />
     </Tab.Navigator>
@@ -47,32 +49,12 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setInitializing(false);
-      console.log('✅ Auth state changed:', currentUser ? 'Connecté' : 'Non connecté');
     });
-
-    // 🔒 Timeout de sécurité : si Firebase ne répond pas en 5s, on affiche AuthScreen
-    const timer = setTimeout(() => {
-      if (initializing) {
-        console.warn('⏳ Auth timeout - fallback vers login');
-        setInitializing(false);
-        setUser(null);
-      }
-    }, 5000);
-
-    return () => {
-      unsubscribe();
-      clearTimeout(timer);
-    };
+    const timer = setTimeout(() => { if (initializing) { setInitializing(false); setUser(null); } }, 5000);
+    return () => { unsubscribe(); clearTimeout(timer); };
   }, []);
 
-  if (initializing) {
-    return (
-      <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#f7fafc'}}>
-        <ActivityIndicator size="large" color="#1a365d" />
-        <Text style={{marginTop:10, color:'#666'}}>Initialisation...</Text>
-      </View>
-    );
-  }
+  if (initializing) return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
 
   return (
     <SafeAreaProvider>

@@ -1,46 +1,80 @@
-// 📦 app/screens/SettingsScreen.js — MVP
-import React from 'react';
-import { View, Text, TouchableOpacity, Alert, Switch } from 'react-native';
-import { auth } from '../services/firebase';
-
-const COLORS = { primary: '#1a365d', background: '#f7fafc', card: '#ffffff', text: '#1a202c', textSecondary: '#4a5568', border: '#e2e8f0' };
+﻿import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, ScrollView } from 'react-native';
+import { auth, db } from '../services/firebase';
+import { signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function SettingsScreen() {
-  const [darkMode, setDarkMode] = React.useState(false);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState(null);
+  const [sub, setSub] = useState(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        if (userSnap.exists()) setProfile(userSnap.data());
+        
+        const subSnap = await getDoc(doc(db, 'subscriptions', uid));
+        if (subSnap.exists()) {
+          const data = subSnap.data();
+          setSub({ ...data, expiresAt: data.expiresAt?.toDate ? data.expiresAt.toDate() : null });
+        }
+      } catch (e) { console.error('❌ Load profile error:', e); }
+      finally { setLoading(false); }
+    };
+    load();
+  }, []);
 
   const handleLogout = () => {
-    Alert.alert('🔐 Déconnexion', 'Voulez-vous vraiment vous déconnecter ?', [
+    Alert.alert('🚪 Déconnexion', 'Voulez-vous vraiment quitter votre session ?', [
       { text: 'Annuler', style: 'cancel' },
-      { text: 'Déconnecter', style: 'destructive', onPress: async () => { await auth.signOut(); Alert.alert('✅ Déconnecté', 'À bientôt sur SikaKpɛ'); } }
+      { 
+        text: 'Oui, déconnecter', 
+        style: 'destructive',
+        onPress: async () => {
+          try { await signOut(auth); } 
+          catch(e) { Alert.alert('❌ Erreur', e.message); }
+        }
+      }
     ]);
   };
 
+  if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator /><Text>Chargement...</Text></View>;
+
   return (
-    <View style={{ flex: 1, backgroundColor: COLORS.background, padding: 20 }}>
-      <Text style={{ fontSize: 24, fontWeight: '700', color: COLORS.primary, marginBottom: 24 }}>⚙️ Paramètres</Text>
-      
-      {/* Profil */}
-      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2 }}>
-        <Text style={{ fontSize: 14, color: COLORS.textSecondary, marginBottom: 4 }}>Compte</Text>
-        <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text }}>{auth.currentUser?.uid ? 'Connecté (anonyme)' : 'Non connecté'}</Text>
+    <ScrollView style={{flex:1, backgroundColor:'#f7fafc', padding:20}}>
+      <Text style={{fontSize:22, fontWeight:'bold', color:'#1a365d', marginBottom:20}}>⚙️ Mon Profil & Paramètres</Text>
+
+      <View style={{backgroundColor:'#fff', padding:16, borderRadius:12, marginBottom:16, elevation:2}}>
+        <Text style={{fontSize:14, color:'#666', marginBottom:4}}>👤 Nom / Entreprise</Text>
+        <Text style={{fontSize:16, fontWeight:'600'}}>{profile?.displayName || 'Non défini'}</Text>
       </View>
 
-      {/* Préférences */}
-      <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>Préférences</Text>
-      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 2 }}>
-        <View><Text style={{ fontSize: 15, fontWeight: '500', color: COLORS.text }}>Mode sombre</Text><Text style={{ fontSize: 13, color: COLORS.textSecondary }}>Activer l'affichage sombre</Text></View>
-        <Switch value={darkMode} onValueChange={setDarkMode} trackColor={{ false: COLORS.border, true: COLORS.primary }} thumbColor="#fff" />
+      <View style={{backgroundColor:'#fff', padding:16, borderRadius:12, marginBottom:16, elevation:2}}>
+        <Text style={{fontSize:14, color:'#666', marginBottom:4}}>📧 Email de connexion</Text>
+        <Text style={{fontSize:16, fontWeight:'600'}}>{profile?.email || auth.currentUser?.email || '-'}</Text>
       </View>
 
-      {/* Informations */}
-      <Text style={{ fontSize: 16, fontWeight: '600', color: COLORS.text, marginBottom: 12 }}>Informations</Text>
-      <View style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, marginBottom: 16, elevation: 2 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }}><Text style={{ color: COLORS.textSecondary }}>Version</Text><Text style={{ color: COLORS.text }}>1.0.0</Text></View>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: COLORS.border }}><Text style={{ color: COLORS.textSecondary }}>Support</Text><Text style={{ color: COLORS.primary }}>support@sikakpe.tg</Text></View>
+      <View style={{backgroundColor:'#fff', padding:16, borderRadius:12, marginBottom:16, elevation:2}}>
+        <Text style={{fontSize:14, color:'#666', marginBottom:4}}>💳 Abonnement actif</Text>
+        {sub ? (
+          <>
+            <Text style={{fontSize:16, fontWeight:'600'}}>{sub.planType==='company'?'🏢 Entreprise (10 000 F)':'👤 Particulier (5 000 F)'}</Text>
+            <Text style={{color:'#065f46', marginTop:4}}>✅ Valide jusqu'au {sub.expiresAt?.toLocaleDateString('fr-FR')}</Text>
+          </>
+        ) : (
+          <Text style={{fontSize:16, color:'#991b1b', fontWeight:'600'}}>⚠️ Aucun abonnement actif</Text>
+        )}
       </View>
 
-      {/* Déconnexion */}
-      <TouchableOpacity style={{ backgroundColor: COLORS.error, paddingVertical: 14, borderRadius: 12, alignItems: 'center' }} onPress={handleLogout}><Text style={{ color: '#fff', fontWeight: '600', fontSize: 16 }}>🔐 Se déconnecter</Text></TouchableOpacity>
-    </View>
+      <TouchableOpacity onPress={handleLogout} style={{backgroundColor:'#c53030', padding:16, borderRadius:12, alignItems:'center', marginTop:20}}>
+        <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>🚪 Se déconnecter</Text>
+      </TouchableOpacity>
+
+      <Text style={{textAlign:'center', color:'#999', marginTop:30, fontSize:11}}>SikaKpɛ v1.0 • Audit de sécurité indépendant 🇹🇬</Text>
+    </ScrollView>
   );
 }
