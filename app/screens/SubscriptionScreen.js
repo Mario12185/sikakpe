@@ -1,13 +1,14 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Linking, Platform, Switch } from 'react-native';
 import { auth, db } from '../services/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { createPaymentLink, pollPaymentStatus } from '../services/maketou';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { createPaymentLink, pollPaymentStatus, setSimulationMode, config as maketouConfig } from '../services/maketou';
 
 export default function SubscriptionScreen({ navigation }) {
   const [sub, setSub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [simulationMode, setSimulationModeState] = useState(maketouConfig.simulationMode);
 
   useEffect(() => {
     const load = async () => {
@@ -47,8 +48,8 @@ export default function SubscriptionScreen({ navigation }) {
       const user = auth.currentUser;
       if (!uid || !user) throw new Error('Utilisateur non authentifié');
 
-      // 🔹 1. Générer le lien de paiement MAKETOU
-      const { payment_url, order_id } = await createPaymentLink({
+      // 🔹 1. Générer le lien de paiement
+      const { payment_url, order_id, isSimulation } = await createPaymentLink({
         amount, currency: 'XOF',
         email: user.email,
         displayName: user.displayName || uid,
@@ -56,39 +57,34 @@ export default function SubscriptionScreen({ navigation }) {
         subscriptionId: uid
       });
 
+      console.log(`💳 Payment initiated | order: ${order_id} | simulation: ${isSimulation}`);
+
       // 🔹 2. Ouvrir le paiement
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        const popup = window.open(payment_url, 'maketou_payment', 'width=500,height=700');
-        
-        // 🔹 3. Attendre que l'utilisateur revienne, puis poller le statut
-        const checkReturn = setInterval(async () => {
-          if (popup && popup.closed) {
-            clearInterval(checkReturn);
-            console.log('🔄 Popup fermée - démarrage du polling...');
-            
-            try {
-              const status = await pollPaymentStatus(order_id);
+        // Si simulation : ouvrir dans la même fenêtre pour faciliter le test
+        if (isSimulation) {
+          window.location.href = payment_url;
+        } else {
+          const popup = window.open(payment_url, 'maketou_payment', 'width=500,height=700');
+          
+          // 🔹 3. Poller le statut quand la popup se ferme
+          const checkReturn = setInterval(async () => {
+            if (popup && popup.closed) {
+              clearInterval(checkReturn);
+              console.log('🔄 Popup fermée - démarrage du polling...');
               
-              if (status === 'success') {
-                await activateSubscription(uid, planType, amount, order_id);
-                Alert.alert('✅ Paiement réussi', `Votre abonnement ${planType === 'company' ? 'Entreprise' : 'Particulier'} est activé !`);
-                navigation?.navigate?.('Dashboard');
-              } else if (status === 'failed') {
-                Alert.alert('❌ Paiement échoué', 'Veuillez réessayer ou contacter le support.');
-              } else if (status === 'timeout') {
-                Alert.alert('⏳ Vérification en cours', 'Votre paiement est peut-être en cours. Revenez dans l\'onglet Abonnement pour vérifier.');
-              } else {
-                Alert.alert('ℹ️ Statut inconnu', 'Veuillez contacter le support si le problème persiste.');
+              try {
+                const status = await pollPaymentStatus(order_id);
+                handlePaymentResult(status, uid, planType, amount, order_id);
+              } catch (e) {
+                console.error('❌ Polling error:', e);
+                Alert.alert('❌ Erreur', 'Impossible de vérifier le statut du paiement.');
+              } finally {
+                setProcessing(false);
               }
-            } catch (e) {
-              console.error('❌ Polling error:', e);
-              Alert.alert('❌ Erreur', 'Impossible de vérifier le statut du paiement.');
-            } finally {
-              setProcessing(false);
             }
-          }
-        }, 1000);
-
+          }, 1000);
+        }
       } else {
         // Mobile : ouvrir dans le navigateur externe
         await Linking.openURL(payment_url);
@@ -103,6 +99,20 @@ export default function SubscriptionScreen({ navigation }) {
     }
   };
 
+  const handlePaymentResult = async (status, uid, planType, amount, orderId) => {
+    if (status === 'success') {
+      await activateSubscription(uid, planType, amount, orderId);
+      Alert.alert('✅ Paiement réussi', `Votre abonnement ${planType === 'company' ? 'Entreprise' : 'Particulier'} est activé !`);
+      navigation?.navigate?.('Dashboard');
+    } else if (status === 'failed') {
+      Alert.alert('❌ Paiement échoué', 'Veuillez réessayer ou contacter le support.');
+    } else if (status === 'timeout') {
+      Alert.alert('⏳ Vérification en cours', 'Votre paiement est peut-être en cours. Revenez dans l\'onglet Abonnement pour vérifier.');
+    } else {
+      Alert.alert('ℹ️ Statut inconnu', `Statut: ${status}. Veuillez contacter le support si le problème persiste.`);
+    }
+  };
+
   const resetMVP = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
@@ -111,28 +121,10 @@ export default function SubscriptionScreen({ navigation }) {
     Alert.alert('🔄 Réinitialisé', 'Profils disponibles affichés.');
   };
 
-  const checkStatusManual = async () => {
-    // Bouton manuel pour vérifier le statut si le polling a échoué
-    const uid = auth.currentUser?.uid;
-    if (!uid || !sub?.maketouOrderId) {
-      Alert.alert('ℹ️ Info', 'Aucun paiement en cours à vérifier.');
-      return;
-    }
-    setProcessing(true);
-    try {
-      const status = await pollPaymentStatus(sub.maketouOrderId);
-      if (status === 'success') {
-        await activateSubscription(uid, sub.planType, sub.amount, sub.maketouOrderId);
-        Alert.alert('✅ Paiement confirmé', 'Votre abonnement est activé !');
-        navigation?.navigate?.('Dashboard');
-      } else {
-        Alert.alert('ℹ️ Statut', `Statut actuel : ${status}`);
-      }
-    } catch (e) {
-      Alert.alert('❌ Erreur', e.message);
-    } finally {
-      setProcessing(false);
-    }
+  const toggleSimulation = (value) => {
+    setSimulationModeState(value);
+    setSimulationMode(value);
+    Alert.alert('🧪 Mode simulation', value ? 'Activé - paiements factices' : 'Désactivé - paiements réels');
   };
 
   if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator size="large" color="#1a365d" /></View>;
@@ -143,7 +135,13 @@ export default function SubscriptionScreen({ navigation }) {
   return (
     <View style={{flex:1,backgroundColor:'#f7fafc',padding:20,justifyContent:'center'}}>
       <Text style={{fontSize:22,fontWeight:'bold',color:'#1a365d',textAlign:'center',marginBottom:8}}>💳 Abonnement SikaKpɛ</Text>
-      <Text style={{color:'#666',textAlign:'center',marginBottom:24,fontSize:14}}>Paiement sécurisé via MAKETOU</Text>
+      <Text style={{color:'#666',textAlign:'center',marginBottom:16,fontSize:14}}>Paiement via MAKETOU</Text>
+
+      {/* 🧪 Toggle simulation mode */}
+      <View style={{flexDirection:'row',justifyContent:'center',alignItems:'center',marginBottom:20,padding:10,backgroundColor:simulationMode?'#fef3c7':'#f1f5f9',borderRadius:8}}>
+        <Text style={{fontSize:12,color:'#666',marginRight:8}}>🧪 Mode simulation</Text>
+        <Switch value={simulationMode} onValueChange={toggleSimulation} trackColor={{false:'#cbd5e1',true:'#fbbf24'}} thumbColor={simulationMode?'#f59e0b':'#64748b'} />
+      </View>
 
       {sub?.isActive ? (
         <View style={{backgroundColor:'#d1fae5', padding:16, borderRadius:12, alignItems:'center', marginBottom:16, borderLeftWidth:4, borderLeftColor:'#065f46'}}>
@@ -166,7 +164,9 @@ export default function SubscriptionScreen({ navigation }) {
             </View>
             <Text style={{color:'#666',marginTop:4}}>Multi-sites, rapports avancés, export pro, support prioritaire</Text>
             <Text style={{fontSize:20,fontWeight:'bold',color:'#1a365d',marginTop:8}}>10 000 FCFA <Text style={{fontSize:12,color:'#666'}}>/ mois</Text></Text>
-            <Text style={{fontSize:11,color:'#25D366',marginTop:6}}>💳 MAKETOU (Moov, Togocel, Carte)</Text>
+            <Text style={{fontSize:11,color: maketouConfig.simulationMode ? '#f59e0b' : '#25D366',marginTop:6}}>
+              {maketouConfig.simulationMode ? '🧪 Simulation (pas de débit)' : '💳 MAKETOU (Moov, Togocel, Carte)'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -180,20 +180,17 @@ export default function SubscriptionScreen({ navigation }) {
             </View>
             <Text style={{color:'#666',marginTop:4}}>Suivi personnel, alertes basiques, export CSV</Text>
             <Text style={{fontSize:20,fontWeight:'bold',color:'#3182ce',marginTop:8}}>5 000 FCFA <Text style={{fontSize:12,color:'#666'}}>/ mois</Text></Text>
-            <Text style={{fontSize:11,color:'#25D366',marginTop:6}}>💳 MAKETOU (Moov, Togocel, Carte)</Text>
+            <Text style={{fontSize:11,color: maketouConfig.simulationMode ? '#f59e0b' : '#25D366',marginTop:6}}>
+              {maketouConfig.simulationMode ? '🧪 Simulation (pas de débit)' : '💳 MAKETOU (Moov, Togocel, Carte)'}
+            </Text>
           </TouchableOpacity>
-
-          {/* 🔍 Bouton manuel pour vérifier un paiement en attente */}
-          {sub?.maketouOrderId && !sub?.isActive && (
-            <TouchableOpacity onPress={checkStatusManual} disabled={processing} style={{marginTop:12,backgroundColor:'#fff',padding:12,borderRadius:8,borderWidth:1,borderColor:'#3182ce',alignItems:'center'}}>
-              <Text style={{color:'#3182ce',fontWeight:'600'}}>🔍 Vérifier le statut de mon paiement</Text>
-            </TouchableOpacity>
-          )}
         </>
       )}
 
       <TouchableOpacity onPress={resetMVP} style={{marginTop:16,alignItems:'center'}}><Text style={{color:'#666',fontSize:12}}>🔄 Réinitialiser pour tester (MVP)</Text></TouchableOpacity>
-      <Text style={{fontSize:10,color:'#999',textAlign:'center',marginTop:20}}>MAKETOU • Paiement sécurisé • Support: support@sikakpe.tg</Text>
+      <Text style={{fontSize:10,color:'#999',textAlign:'center',marginTop:20}}>
+        {maketouConfig.simulationMode ? '🧪 Mode simulation activé - aucun paiement réel' : 'MAKETOU • Paiement sécurisé • Support: support@sikakpe.tg'}
+      </Text>
     </View>
   );
 }

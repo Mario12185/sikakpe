@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧪 Simulation Paiement - SikaKpɛ</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; text-align: center; background: #f7fafc; }
+    .card { background: #fff; padding: 24px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    .success { color: #065f46; }
+    .btn { background: #1a365d; color: #fff; padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin-top: 16px; }
+    .btn:hover { background: #0f2440; }
+    .timer { font-size: 24px; font-weight: bold; color: #1a365d; margin: 20px 0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🧪 Simulation Paiement</h1>
+    <p style="color:#666">MAKETOU (Mode Test)</p>
+    
+    <div id="status">
+      <p>Préparation du paiement...</p>
+      <div class="timer" id="countdown">3</div>
+      <p style="font-size:12px;color:#999">Redirection automatique dans <span id="seconds">3</span>s</p>
+    </div>
+    
+    <button class="btn" id="confirmBtn" style="display:none" onclick="completePayment()">✅ Confirmer le paiement (5 000 FCFA)</button>
+  </div>
+
+  <script>
+    // Récupérer les paramètres URL
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('order_id');
+    const amount = params.get('amount');
+    const planType = params.get('planType');
+    
+    let countdown = 3;
+    const countdownEl = document.getElementById('countdown');
+    const secondsEl = document.getElementById('seconds');
+    const statusEl = document.getElementById('status');
+    const confirmBtn = document.getElementById('confirmBtn');
+    
+    // Compte à rebours
+    const timer = setInterval(() => {
+      countdown--;
+      countdownEl.textContent = countdown;
+      secondsEl.textContent = countdown;
+      if (countdown <= 0) {
+        clearInterval(timer);
+        statusEl.innerHTML = `<p class="success">✅ Paiement simulé réussi !</p><p style="color:#666">Commande: ${orderId}</p>`;
+        confirmBtn.style.display = 'inline-block';
+      }
+    }, 1000);
+    
+    // Compléter le paiement et rediriger vers l'app
+    function completePayment() {
+      // Sauvegarder le statut dans localStorage pour que l'app puisse le lire
+      localStorage.setItem(`payment_${orderId}`, JSON.stringify({ status: 'success', timestamp: Date.now() }));
+      
+      // Rediriger vers l'app (URL de retour)
+      window.location.href = 'https://sikakpe-togo.web.app/abonnement?payment_success=' + orderId;
+    }
+    
+    // Au chargement, vérifier si on vient d'un retour de paiement
+    window.addEventListener('load', () => {
+      const returnUrl = new URLSearchParams(window.location.search).get('payment_success');
+      if (returnUrl) {
+        // L'app gérera la suite via polling
+      }
+    });
+  </script>
+</body>
+</html>
