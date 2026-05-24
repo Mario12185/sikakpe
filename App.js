@@ -42,19 +42,39 @@ function MainTabs() {
 }
 
 export default function App() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(undefined); // undefined = chargement, null = non connecté, object = connecté
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
+    console.log('🔄 App mounted - listening to auth state');
+    
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+      console.log('🔐 onAuthStateChanged fired | user:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
+      setUser(currentUser || null);
       setInitializing(false);
     });
-    const timer = setTimeout(() => { if (initializing) { setInitializing(false); setUser(null); } }, 5000);
-    return () => { unsubscribe(); clearTimeout(timer); };
+
+    // 🔒 Timeout de secours : si Firebase ne répond pas en 5s, on affiche AuthScreen
+    const timer = setTimeout(() => {
+      if (initializing) {
+        console.warn('⏳ Auth timeout - fallback vers login');
+        setInitializing(false);
+        setUser(null);
+      }
+    }, 5000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
-  if (initializing) return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
+  // ⏳ Affiche un loader tant que l'état auth n'est pas déterminé
+  if (initializing || user === undefined) {
+    return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
+  }
+
+  console.log('🎨 Rendering | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
 
   return (
     <SafeAreaProvider>
