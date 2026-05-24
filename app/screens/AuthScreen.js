@@ -1,5 +1,5 @@
 ﻿import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { auth } from '../services/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
@@ -11,7 +11,8 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async () => {
-    if (loading) return; // ✅ Empêche le double-clic
+    console.log('🔘 handleAuth appelé | isLogin:', isLogin, '| Email:', email);
+    if (loading) return;
     if (!email.includes('@') || password.length < 6) {
       Alert.alert('⚠️ Requis', 'Email valide et mot de passe (min. 6 caractères) obligatoires.');
       return;
@@ -24,12 +25,13 @@ export default function AuthScreen() {
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
+        console.log('✅ Connexion réussie');
       } else {
         await createUserWithEmailAndPassword(auth, email, password);
+        console.log('✅ Inscription réussie');
       }
-      // ✅ Nettoyage automatique des champs après succès
-      setEmail(''); setPassword(''); setFullName('');
     } catch (e) {
+      console.error('❌ Auth error:', e);
       let msg = 'Erreur de connexion.';
       if (e.code === 'auth/invalid-email') msg = 'Format d\'email invalide.';
       if (e.code === 'auth/wrong-password' || e.code === 'auth/user-not-found') msg = 'Email ou mot de passe incorrect.';
@@ -47,13 +49,15 @@ export default function AuthScreen() {
         <View style={{backgroundColor:'#fff', padding:24, borderRadius:16, elevation:4}}>
           <Text style={{fontSize:24, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:8}}>🇹🇬 SikaKpɛ</Text>
           <Text style={{color:'#666', textAlign:'center', marginBottom:24}}>{isLogin ? 'Connectez-vous' : 'Créez votre compte'}</Text>
-          {!isLogin && <TextInput placeholder="Nom complet ou Raison sociale" value={fullName} onChangeText={setFullName} style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} />}
-          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} autoCapitalize="none" />
-          <TextInput placeholder="Mot de passe (min. 6)" value={password} onChangeText={setPassword} secureTextEntry style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20}} autoCapitalize="none" />
-          <TouchableOpacity style={{backgroundColor:'#1a365d', padding:16, borderRadius:12, alignItems:'center', opacity:loading?0.7:1}} onPress={handleAuth} disabled={loading}>
+          {!isLogin && <TextInput placeholder="Nom complet ou Raison sociale" value={fullName} onChangeText={setFullName} style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12, fontSize:16}} />}
+          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12, fontSize:16}} autoCapitalize="none" />
+          <TextInput placeholder="Mot de passe (min. 6)" value={password} onChangeText={setPassword} secureTextEntry style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20, fontSize:16}} autoCapitalize="none" />
+          <Pressable onPress={handleAuth} disabled={loading} style={({pressed}) => ({ backgroundColor: loading ? '#999' : (pressed ? '#0f2440' : '#1a365d'), padding:16, borderRadius:12, alignItems:'center', opacity: loading ? 0.7 : 1 })}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>{isLogin ? '🔐 Se connecter' : '✅ Créer mon compte'}</Text>}
-          </TouchableOpacity>
-          <TouchableOpacity style={{marginTop:16, alignItems:'center'}} onPress={()=>setIsLogin(!isLogin)}><Text style={{color:'#3182ce', fontWeight:'600'}}>{isLogin ? 'Pas de compte ? S\'inscrire' : 'Déjà inscrit ? Se connecter'}</Text></TouchableOpacity>
+          </Pressable>
+          <Pressable onPress={() => { console.log('🔄 Toggle mode'); setIsLogin(!isLogin); }} style={{marginTop:16, alignItems:'center', padding:10}}>
+            <Text style={{color:'#3182ce', fontWeight:'600'}}>{isLogin ? 'Pas de compte ? S\'inscrire' : 'Déjà inscrit ? Se connecter'}</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
