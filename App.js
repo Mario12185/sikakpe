@@ -43,56 +43,51 @@ function MainTabs() {
 
 export default function App() {
   const [user, setUser] = useState(undefined);
-  const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    console.log('🔄 App mounted - setting up auth listeners');
+    console.log('🔄 App mounted - setting up auth');
     
-    // 🔐 1. Vérification SYNCHRONE immédiate (fallback principal)
-    const checkCurrentUser = () => {
-      const current = auth.currentUser;
-      console.log('🔍 auth.currentUser check:', current ? 'CONNECTÉ' : 'NON CONNECTÉ');
-      if (current) {
-        setUser(current);
-        setInitializing(false);
-      }
-    };
-    
-    // Exécution immédiate
-    checkCurrentUser();
-
-    // 🔐 2. Listener onAuthStateChanged (secours)
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('🔐 onAuthStateChanged fired | user:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
+    // 🔐 Fonction centrale de mise à jour
+    const updateUser = (currentUser) => {
+      console.log('👤 updateUser called:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
       setUser(currentUser || null);
-      setInitializing(false);
+    };
+
+    // 🔐 Listener principal
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      console.log('🔐 onAuthStateChanged fired:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
+      updateUser(currentUser);
     });
 
-    // 🔐 3. Fallback asynchrone 500ms après (couvre le cas Web où l'événement est manqué)
-    const fallbackTimer = setTimeout(() => {
-      if (initializing) {
-        console.log('⏳ Fallback async check triggered');
-        checkCurrentUser();
-        if (initializing) {
-          console.warn('⚠️ Auth still initializing after fallback - forcing AuthScreen');
-          setInitializing(false);
-          setUser(null);
-        }
+    // 🔐 Polling de secours : vérifie auth.currentUser toutes les 200ms pendant 2 secondes max
+    let pollCount = 0;
+    const pollInterval = setInterval(() => {
+      pollCount++;
+      const current = auth.currentUser;
+      if (current && !user) {
+        console.log('🔍 Polling caught currentUser:', current.uid);
+        updateUser(current);
+        clearInterval(pollInterval);
       }
-    }, 500);
+      if (pollCount >= 10) { // 10 x 200ms = 2 secondes
+        console.log('⏳ Polling timeout - final check');
+        updateUser(auth.currentUser);
+        clearInterval(pollInterval);
+      }
+    }, 200);
 
     return () => {
       unsubscribe();
-      clearTimeout(fallbackTimer);
+      clearInterval(pollInterval);
     };
-  }, []);
+  }, [user]); // Re-run si user change (pour arrêter le polling une fois connecté)
 
   // ⏳ Loader pendant l'initialisation
-  if (initializing || user === undefined) {
+  if (user === undefined) {
     return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
   }
 
-  console.log('🎨 Rendering decision | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
+  console.log('🎨 Rendering | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
 
   return (
     <SafeAreaProvider>
