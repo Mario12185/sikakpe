@@ -11,12 +11,17 @@ export default function SettingsScreen() {
   const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
+    console.log('⚙️ SettingsScreen mounted');
     const load = async () => {
       try {
         const uid = auth.currentUser?.uid;
+        console.log('👤 Loading profile for UID:', uid);
         if (!uid) { setLoading(false); return; }
         const userSnap = await getDoc(doc(db, 'users', uid));
-        if (userSnap.exists()) setProfile(userSnap.data());
+        if (userSnap.exists()) {
+          console.log('✅ Profile loaded:', userSnap.data().displayName);
+          setProfile(userSnap.data());
+        }
         const subSnap = await getDoc(doc(db, 'subscriptions', uid));
         if (subSnap.exists()) {
           const data = subSnap.data();
@@ -29,10 +34,13 @@ export default function SettingsScreen() {
   }, []);
 
   const handleLogout = async () => {
+    console.log('🚪 handleLogout called');
     try {
       setLoggingOut(true);
+      console.log('🔄 Calling signOut...');
       await signOut(auth);
-      // ✅ App.js détecte automatiquement user=null et affiche AuthScreen
+      console.log('✅ signOut succeeded - App.js should now show AuthScreen');
+      // ✅ onAuthStateChanged dans App.js détecte user=null et affiche AuthScreen automatiquement
     } catch (e) {
       console.error('❌ SignOut error:', e);
       Alert.alert('❌ Échec', 'Impossible de se déconnecter. Vérifiez votre connexion.');
@@ -41,12 +49,17 @@ export default function SettingsScreen() {
   };
 
   const confirmLogout = () => {
+    console.log('🔘 confirmLogout called');
     Alert.alert(
       '🚪 Déconnexion',
       'Voulez-vous vraiment quitter votre session ?',
       [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Oui, déconnecter', style: 'destructive', onPress: handleLogout }
+        { text: 'Annuler', style: 'cancel', onPress: () => console.log('❌ Logout cancelled') },
+        { 
+          text: 'Oui, déconnecter', 
+          style: 'destructive', 
+          onPress: () => { console.log('✅ Logout confirmed'); handleLogout(); } 
+        }
       ]
     );
   };
