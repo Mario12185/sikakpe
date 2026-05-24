@@ -8,15 +8,15 @@ export default function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [sub, setSub] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       try {
         const uid = auth.currentUser?.uid;
-        if (!uid) return;
+        if (!uid) { setLoading(false); return; }
         const userSnap = await getDoc(doc(db, 'users', uid));
         if (userSnap.exists()) setProfile(userSnap.data());
-        
         const subSnap = await getDoc(doc(db, 'subscriptions', uid));
         if (subSnap.exists()) {
           const data = subSnap.data();
@@ -28,18 +28,27 @@ export default function SettingsScreen() {
     load();
   }, []);
 
-  const handleLogout = () => {
-    Alert.alert('🚪 Déconnexion', 'Voulez-vous vraiment quitter votre session ?', [
-      { text: 'Annuler', style: 'cancel' },
-      { 
-        text: 'Oui, déconnecter', 
-        style: 'destructive',
-        onPress: async () => {
-          try { await signOut(auth); } 
-          catch(e) { Alert.alert('❌ Erreur', e.message); }
-        }
-      }
-    ]);
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await signOut(auth);
+      // ✅ App.js détecte automatiquement user=null et affiche AuthScreen
+    } catch (e) {
+      console.error('❌ SignOut error:', e);
+      Alert.alert('❌ Échec', 'Impossible de se déconnecter. Vérifiez votre connexion.');
+      setLoggingOut(false);
+    }
+  };
+
+  const confirmLogout = () => {
+    Alert.alert(
+      '🚪 Déconnexion',
+      'Voulez-vous vraiment quitter votre session ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Oui, déconnecter', style: 'destructive', onPress: handleLogout }
+      ]
+    );
   };
 
   if (loading) return <View style={{flex:1,justifyContent:'center',alignItems:'center'}}><ActivityIndicator /><Text>Chargement...</Text></View>;
@@ -70,8 +79,12 @@ export default function SettingsScreen() {
         )}
       </View>
 
-      <TouchableOpacity onPress={handleLogout} style={{backgroundColor:'#c53030', padding:16, borderRadius:12, alignItems:'center', marginTop:20}}>
-        <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>🚪 Se déconnecter</Text>
+      <TouchableOpacity
+        onPress={confirmLogout}
+        disabled={loggingOut}
+        style={{backgroundColor: loggingOut ? '#999' : '#c53030', padding:16, borderRadius:12, alignItems:'center', marginTop:20}}
+      >
+        {loggingOut ? <ActivityIndicator color="#fff" /> : <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>🚪 Se déconnecter</Text>}
       </TouchableOpacity>
 
       <Text style={{textAlign:'center', color:'#999', marginTop:30, fontSize:11}}>SikaKpɛ v1.0 • Audit de sécurité indépendant 🇹🇬</Text>

@@ -1,8 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { auth, db } from '../services/firebase';
+import { auth } from '../services/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
@@ -12,6 +11,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
 
   const handleAuth = async () => {
+    if (loading) return; // ✅ Empêche le double-clic
     if (!email.includes('@') || password.length < 6) {
       Alert.alert('⚠️ Requis', 'Email valide et mot de passe (min. 6 caractères) obligatoires.');
       return;
@@ -25,16 +25,10 @@ export default function AuthScreen() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        // 💾 Sauvegarde immédiate dans Firestore
-        await setDoc(doc(db, 'users', cred.user.uid), {
-          email: email.trim(),
-          displayName: fullName.trim(),
-          createdAt: serverTimestamp(),
-          role: 'client'
-        });
+        await createUserWithEmailAndPassword(auth, email, password);
       }
-      // ✅ onAuthStateChanged dans App.js bascule automatiquement vers le Dashboard
+      // ✅ Nettoyage automatique des champs après succès
+      setEmail(''); setPassword(''); setFullName('');
     } catch (e) {
       let msg = 'Erreur de connexion.';
       if (e.code === 'auth/invalid-email') msg = 'Format d\'email invalide.';
@@ -53,24 +47,14 @@ export default function AuthScreen() {
         <View style={{backgroundColor:'#fff', padding:24, borderRadius:16, elevation:4}}>
           <Text style={{fontSize:24, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:8}}>🇹🇬 SikaKpɛ</Text>
           <Text style={{color:'#666', textAlign:'center', marginBottom:24}}>{isLogin ? 'Connectez-vous' : 'Créez votre compte'}</Text>
-
-          {!isLogin && (
-            <TextInput placeholder="Nom complet ou Raison sociale" value={fullName} onChangeText={setFullName}
-              style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} />
-          )}
-          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address"
-            style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} autoCapitalize="none" />
-          <TextInput placeholder="Mot de passe (min. 6)" value={password} onChangeText={setPassword} secureTextEntry
-            style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20}} autoCapitalize="none" />
-
+          {!isLogin && <TextInput placeholder="Nom complet ou Raison sociale" value={fullName} onChangeText={setFullName} style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} />}
+          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} autoCapitalize="none" />
+          <TextInput placeholder="Mot de passe (min. 6)" value={password} onChangeText={setPassword} secureTextEntry style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20}} autoCapitalize="none" />
           <TouchableOpacity style={{backgroundColor:'#1a365d', padding:16, borderRadius:12, alignItems:'center', opacity:loading?0.7:1}} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>{isLogin ? '🔐 Se connecter' : '✅ Créer mon compte'}</Text>}
           </TouchableOpacity>
-          <TouchableOpacity style={{marginTop:16, alignItems:'center'}} onPress={()=>setIsLogin(!isLogin)}>
-            <Text style={{color:'#3182ce', fontWeight:'600'}}>{isLogin ? 'Pas de compte ? S\'inscrire' : 'Déjà inscrit ? Se connecter'}</Text>
-          </TouchableOpacity>
+          <TouchableOpacity style={{marginTop:16, alignItems:'center'}} onPress={()=>setIsLogin(!isLogin)}><Text style={{color:'#3182ce', fontWeight:'600'}}>{isLogin ? 'Pas de compte ? S\'inscrire' : 'Déjà inscrit ? Se connecter'}</Text></TouchableOpacity>
         </View>
-        <Text style={{textAlign:'center', color:'#999', marginTop:20, fontSize:12}}>Audit de sécurité indépendant • 10 000 / 5 000 FCFA</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
