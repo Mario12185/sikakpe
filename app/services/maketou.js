@@ -8,7 +8,7 @@ export const MAKETOU_CONFIG = {
   apiKey: process.env?.EXPO_PUBLIC_MAKETOU_API_KEY || 'msk_e36707db0536725209cde7a07017ce98e7409da60118b20167d3eb416222ad05',
   returnUrl: 'https://sikakpe-togo.web.app/abonnement/success',
   cancelUrl: 'https://sikakpe-togo.web.app/abonnement/cancel',
-  simulationMode: false // ✅ DÉSACTIVÉ pour paiements réels
+  simulationMode: true // ✅ DÉSACTIVÉ pour paiements réels
 };
 
 export const createPaymentLink = async ({ amount, currency = 'XOF', email, displayName, planType, subscriptionId }) => {
@@ -80,3 +80,4 @@ export const pollPaymentStatus = async (orderId, maxAttempts = 20, interval = 20
 
 export const setSimulationMode = (enabled) => { MAKETOU_CONFIG.simulationMode = enabled; };
 export default { config: MAKETOU_CONFIG, createPaymentLink, checkPaymentStatus, pollPaymentStatus, setSimulationMode };
+
