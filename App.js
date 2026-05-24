@@ -42,39 +42,57 @@ function MainTabs() {
 }
 
 export default function App() {
-  const [user, setUser] = useState(undefined); // undefined = chargement, null = non connecté, object = connecté
+  const [user, setUser] = useState(undefined);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    console.log('🔄 App mounted - listening to auth state');
+    console.log('🔄 App mounted - setting up auth listeners');
     
+    // 🔐 1. Vérification SYNCHRONE immédiate (fallback principal)
+    const checkCurrentUser = () => {
+      const current = auth.currentUser;
+      console.log('🔍 auth.currentUser check:', current ? 'CONNECTÉ' : 'NON CONNECTÉ');
+      if (current) {
+        setUser(current);
+        setInitializing(false);
+      }
+    };
+    
+    // Exécution immédiate
+    checkCurrentUser();
+
+    // 🔐 2. Listener onAuthStateChanged (secours)
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       console.log('🔐 onAuthStateChanged fired | user:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
       setUser(currentUser || null);
       setInitializing(false);
     });
 
-    // 🔒 Timeout de secours : si Firebase ne répond pas en 5s, on affiche AuthScreen
-    const timer = setTimeout(() => {
+    // 🔐 3. Fallback asynchrone 500ms après (couvre le cas Web où l'événement est manqué)
+    const fallbackTimer = setTimeout(() => {
       if (initializing) {
-        console.warn('⏳ Auth timeout - fallback vers login');
-        setInitializing(false);
-        setUser(null);
+        console.log('⏳ Fallback async check triggered');
+        checkCurrentUser();
+        if (initializing) {
+          console.warn('⚠️ Auth still initializing after fallback - forcing AuthScreen');
+          setInitializing(false);
+          setUser(null);
+        }
       }
-    }, 5000);
+    }, 500);
 
     return () => {
       unsubscribe();
-      clearTimeout(timer);
+      clearTimeout(fallbackTimer);
     };
   }, []);
 
-  // ⏳ Affiche un loader tant que l'état auth n'est pas déterminé
+  // ⏳ Loader pendant l'initialisation
   if (initializing || user === undefined) {
     return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
   }
 
-  console.log('🎨 Rendering | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
+  console.log('🎨 Rendering decision | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
 
   return (
     <SafeAreaProvider>
