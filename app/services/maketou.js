@@ -1,20 +1,30 @@
-﻿// 📦 app/services/maketou.js — Paiement MAKETOU (Version Simplifiée MVP)
+﻿// 📦 app/services/maketou.js — MAKETOU API Intégration (Production Ready)
+// Base: https://api.maketou.net | Auth: Bearer Token
 
-// 🔧 Configuration globale (accessible partout)
 export const MAKETOU_CONFIG = {
-  paymentBaseUrl: 'https://maketou.com/pay',
-  merchantId: 'MERCHANT_XXXX',
-  publicKey: 'pk_test_XXXXXXXXXXXXXXXX',
+  // ✅ URLs de base
+  baseUrl: 'https://api.maketou.net',
+  
+  // 🔗 Endpoints (à confirmer avec la doc MAKETOU - valeurs typiques)
+  initiatePath: '/v1/checkout/sessions',   // POST - créer un paiement
+  statusPath: '/v1/checkout/sessions',     // GET /{id} - vérifier statut
+  
+  // 🔑 Clé API (chargée depuis .env.local en production)
+  apiKey: process.env?.EXPO_PUBLIC_MAKETOU_API_KEY || 'msk_e36707db0536725209cde7a07017ce98e7409da60118b20167d3eb416222ad05',
+  
+  // 🔄 URLs de retour
   returnUrl: 'https://sikakpe-togo.web.app/abonnement/success',
   cancelUrl: 'https://sikakpe-togo.web.app/abonnement/cancel',
-  simulationMode: true  // ← true = mode test, false = production
+  
+  // 🎛️ Mode simulation (true = test local, false = paiements réels)
+  simulationMode: true  // ← Garder true pour tester d'abord sans débiter
 };
 
-// 🔗 Génère l'URL de paiement (simulation ou redirect)
-export const createPaymentLink = ({ amount, currency = 'XOF', email, displayName, planType, subscriptionId }) => {
+// 🔗 Créer une session de paiement MAKETOU
+export const createPaymentLink = async ({ amount, currency = 'XOF', email, displayName, planType, subscriptionId }) => {
   const orderId = `SikaKpe_${subscriptionId}_${Date.now()}`;
   
-  // Mode simulation : URL locale de test
+  // Mode simulation : retourne URL locale de test
   if (MAKETOU_CONFIG.simulationMode) {
     console.log('🧪 Simulation mode - paiement factice');
     return {
@@ -24,47 +34,77 @@ export const createPaymentLink = ({ amount, currency = 'XOF', email, displayName
     };
   }
   
-  // Production : construction URL avec paramètres (à adapter selon doc MAKETOU)
-  const params = new URLSearchParams({
-    merchant_id: MAKETOU_CONFIG.merchantId,
-    amount: amount.toString(),
-    currency: currency,
-    order_id: orderId,
-    description: `Abonnement SikaKpɛ - ${planType === 'company' ? 'Entreprise' : 'Particulier'}`,
-    customer_email: email,
-    customer_name: displayName,
-    return_url: MAKETOU_CONFIG.returnUrl,
-    cancel_url: MAKETOU_CONFIG.cancelUrl
-  });
-  
-  return { 
-    payment_url: `${MAKETOU_CONFIG.paymentBaseUrl}?${params.toString()}`, 
-    order_id: orderId, 
-    isSimulation: false 
-  };
+  // Production : Appel API MAKETOU
+  try {
+    const response = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.initiatePath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${MAKETOU_CONFIG.apiKey}`
+      },
+      body: JSON.stringify({
+        amount: Math.round(amount * 1.08), // +8% frais API MAKETOU
+        currency: currency,
+        order_id: orderId,
+        description: `Abonnement SikaKpɛ - ${planType === 'company' ? 'Entreprise' : 'Particulier'}`,
+        customer_email: email,
+        customer_name: displayName,
+        return_url: MAKETOU_CONFIG.returnUrl,
+        cancel_url: MAKETOU_CONFIG.cancelUrl,
+        metadata: { uid: subscriptionId, planType, platform: 'web' }
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return {
+      payment_url: data.payment_url || data.checkout_url || data.redirect_url || data.url,
+      order_id: data.order_id || data.id || orderId,
+      isSimulation: false
+    };
+    
+  } catch (e) {
+    console.error('❌ createPaymentLink error:', e);
+    throw e;
+  }
 };
 
-// 🔍 Vérifie le statut (simulation uniquement pour MVP)
+// 🔍 Vérifier le statut d'un paiement
 export const checkPaymentStatus = async (orderId) => {
   if (MAKETOU_CONFIG.simulationMode) {
-    // Simulation : retourne 'success' après délai court
     await new Promise(resolve => setTimeout(resolve, 1500));
     return 'success';
   }
-  // Production : à implémenter avec API réelle MAKETOU
-  return 'pending';
+  
+  try {
+    const response = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.statusPath}/${orderId}`, {
+      headers: { 'Authorization': `Bearer ${MAKETOU_CONFIG.apiKey}` }
+    });
+    
+    if (!response.ok) return 'pending';
+    
+    const data = await response.json();
+    return data.status || data.state || data.payment_status || 'pending';
+    
+  } catch (e) {
+    console.warn('⚠️ checkPaymentStatus error:', e.message);
+    return 'pending';
+  }
 };
 
-// ⏱️ Polling simplifié
+// ⏱️ Polling du statut
 export const pollPaymentStatus = async (orderId, maxAttempts = 20, interval = 2000) => {
   for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const status = await checkPaymentStatus(orderId);
-      if (status === 'success' || status === 'completed') return 'success';
-      if (status === 'failed' || status === 'cancelled') return 'failed';
-    } catch (e) {
-      console.warn('⚠️ Polling error:', e.message);
-    }
+    const status = await checkPaymentStatus(orderId);
+    console.log(`🔍 Polling ${i+1}/${maxAttempts} | status: ${status}`);
+    
+    if (['success', 'completed', 'paid', 'succeeded'].includes(status)) return 'success';
+    if (['failed', 'cancelled', 'rejected', 'expired'].includes(status)) return 'failed';
+    
     await new Promise(r => setTimeout(r, interval));
   }
   return 'timeout';
@@ -73,9 +113,9 @@ export const pollPaymentStatus = async (orderId, maxAttempts = 20, interval = 20
 // 🎛️ Toggle simulation
 export const setSimulationMode = (enabled) => {
   MAKETOU_CONFIG.simulationMode = enabled;
+  console.log(`🧪 Simulation mode: ${enabled ? 'ON' : 'OFF'}`);
 };
 
-// ✅ Export par défaut pour compatibilité
 export default {
   config: MAKETOU_CONFIG,
   createPaymentLink,
