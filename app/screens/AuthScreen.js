@@ -1,10 +1,12 @@
 ﻿import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function AuthScreen() {
   const [isLogin, setIsLogin] = useState(true);
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -14,14 +16,25 @@ export default function AuthScreen() {
       Alert.alert('⚠️ Requis', 'Email valide et mot de passe (min. 6 caractères) obligatoires.');
       return;
     }
+    if (!isLogin && !fullName.trim()) {
+      Alert.alert('⚠️ Requis', 'Veuillez entrer votre nom ou raison sociale.');
+      return;
+    }
     setLoading(true);
     try {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // 💾 Sauvegarde immédiate dans Firestore
+        await setDoc(doc(db, 'users', cred.user.uid), {
+          email: email.trim(),
+          displayName: fullName.trim(),
+          createdAt: serverTimestamp(),
+          role: 'client'
+        });
       }
-      // ✅ Pas de navigation manuelle ! onAuthStateChanged dans App.js bascule automatiquement vers MainTabs
+      // ✅ onAuthStateChanged dans App.js bascule automatiquement vers le Dashboard
     } catch (e) {
       let msg = 'Erreur de connexion.';
       if (e.code === 'auth/invalid-email') msg = 'Format d\'email invalide.';
@@ -31,9 +44,7 @@ export default function AuthScreen() {
       if (e.code === 'auth/network-request-failed') msg = 'Problème de connexion internet.';
       if (e.code === 'auth/operation-not-allowed') msg = 'Email/Mot de passe non activé dans Firebase Console.';
       Alert.alert('❌ Échec', msg);
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
   return (
@@ -42,8 +53,16 @@ export default function AuthScreen() {
         <View style={{backgroundColor:'#fff', padding:24, borderRadius:16, elevation:4}}>
           <Text style={{fontSize:24, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:8}}>🇹🇬 SikaKpɛ</Text>
           <Text style={{color:'#666', textAlign:'center', marginBottom:24}}>{isLogin ? 'Connectez-vous' : 'Créez votre compte'}</Text>
-          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address" style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} autoCapitalize="none" />
-          <TextInput placeholder="Mot de passe" value={password} onChangeText={setPassword} secureTextEntry style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20}} autoCapitalize="none" />
+
+          {!isLogin && (
+            <TextInput placeholder="Nom complet ou Raison sociale" value={fullName} onChangeText={setFullName}
+              style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} />
+          )}
+          <TextInput placeholder="Email" value={email} onChangeText={setEmail} keyboardType="email-address"
+            style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:12}} autoCapitalize="none" />
+          <TextInput placeholder="Mot de passe (min. 6)" value={password} onChangeText={setPassword} secureTextEntry
+            style={{backgroundColor:'#f5f5f5', padding:14, borderRadius:10, marginBottom:20}} autoCapitalize="none" />
+
           <TouchableOpacity style={{backgroundColor:'#1a365d', padding:16, borderRadius:12, alignItems:'center', opacity:loading?0.7:1}} onPress={handleAuth} disabled={loading}>
             {loading ? <ActivityIndicator color="#fff" /> : <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>{isLogin ? '🔐 Se connecter' : '✅ Créer mon compte'}</Text>}
           </TouchableOpacity>
@@ -51,6 +70,7 @@ export default function AuthScreen() {
             <Text style={{color:'#3182ce', fontWeight:'600'}}>{isLogin ? 'Pas de compte ? S\'inscrire' : 'Déjà inscrit ? Se connecter'}</Text>
           </TouchableOpacity>
         </View>
+        <Text style={{textAlign:'center', color:'#999', marginTop:20, fontSize:12}}>Audit de sécurité indépendant • 10 000 / 5 000 FCFA</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
