@@ -1,5 +1,5 @@
-﻿// 📦 app/services/maketou.js — MAKETOU API (Production Ready - FIXED 422)
-// Base: https://api.maketou.net | Auth: Bearer Token
+﻿// 📦 app/services/maketou.js — MAKETOU API DEBUG 422
+// Cette version affiche TOUT pour identifier la cause exacte
 
 export const MAKETOU_CONFIG = {
   baseUrl: 'https://api.maketou.net',
@@ -15,27 +15,22 @@ export const MAKETOU_CONFIG = {
   simulationMode: false
 };
 
-// 🔗 Créer un panier et initier le paiement MAKETOU (VERSION CORRIGÉE 422)
+// 🔗 Créer un panier — VERSION DEBUG MAX
 export const createPaymentLink = async ({ amount, currency = 'XOF', email, displayName, planType, subscriptionId }) => {
   const orderId = `SikaKpe_${subscriptionId}_${Date.now()}`;
   
   if (MAKETOU_CONFIG.simulationMode) {
-    console.log('🧪 Simulation mode');
     return { payment_url: `/simulate.html?order_id=${orderId}`, order_id: orderId, isSimulation: true };
   }
   
   const productDocumentId = MAKETOU_CONFIG.productIds[planType];
-  if (!productDocumentId) {
-    throw new Error(`productDocumentId manquant pour "${planType}"`);
-  }
+  if (!productDocumentId) throw new Error(`productDocumentId manquant pour "${planType}"`);
   
-  // 📝 Préparer le nom du client (sécurisé contre les chaînes vides)
+  // 📝 Noms sécurisés
   const cleanName = (displayName || email || 'Client SikaKpe').trim();
   const nameParts = cleanName.split(' ').filter(p => p.length > 0);
   const firstName = nameParts[0] || 'Client';
-  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'SikaKpe';
-  
-  // 💰 customerPrice DOIT être un entier (pas de décimales)
+  const lastName = nameParts.slice(1).join(' ') || 'SikaKpe';
   const customerPrice = Math.round(Number(amount) || 0);
   
   const body = {
@@ -45,27 +40,17 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
     lastName: lastName.trim(),
     phone: '',
     redirectURL: MAKETOU_CONFIG.returnUrl,
-    customerPrice,  // ✅ Entier obligatoire
-    meta: {
-      uid: subscriptionId,
-      planType,
-      platform: 'web',
-      originalAmount: amount
-    }
+    customerPrice,
+    meta: { uid: subscriptionId, planType, platform: 'web', originalAmount: amount }
   };
 
-  // 🔍 Log détaillé pour debug (masque les infos sensibles)
-  console.log('📤 MAKETOU API request:', {
-    url: `${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.initiatePath}`,
-    body: {
-      ...body,
-      productDocumentId: '***',
-      email: '***',
-      meta: { uid: '***' }
-    },
-    customerPrice_type: typeof customerPrice,
-    customerPrice_value: customerPrice
-  });
+  // 🔍 LOG 1: Body envoyé (masqué partiellement)
+  console.log('📤 MAKETOU request body:', JSON.stringify({
+    ...body,
+    productDocumentId: '***',
+    email: '***',
+    meta: { uid: '***' }
+  }, null, 2));
 
   try {
     const response = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.initiatePath}`, {
@@ -77,30 +62,51 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
       body: JSON.stringify(body)
     });
     
-    const responseData = await response.json().catch(() => ({}));
-    
-    if (!response.ok) {
-      // 🔍 EXTRACTION CORRECTE de l'erreur (message est un tableau !)
-      const errorMsg = Array.isArray(responseData.message) 
-        ? responseData.message.join(', ') 
-        : responseData.message || responseData.error || `HTTP ${response.status}`;
-      
-      console.error('❌ MAKETOU API error:', {
-        status: response.status,
-        code: responseData.code,
-        message: responseData.message,
-        fullResponse: responseData
-      });
-      
-      throw new Error(errorMsg);
-    }
-    
-    console.log('✅ MAKETOU API response:', {
-      cartId: responseData.cart?.id,
-      status: responseData.cart?.status,
-      redirectUrl: responseData.redirectUrl
+    // 🔍 LOG 2: Réponse RAW avant tout traitement
+    const rawText = await response.text();
+    console.log('📥 MAKETOU raw response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: rawText
     });
     
+    // Parser JSON si possible
+    let responseData;
+    try {
+      responseData = JSON.parse(rawText);
+    } catch {
+      responseData = { raw: rawText };
+    }
+    
+    if (!response.ok) {
+      // 🔍 LOG 3: Extraction multi-niveaux de l'erreur
+      const extractError = (obj, depth = 0) => {
+        if (depth > 3) return 'Too deep';
+        if (!obj) return 'Empty';
+        if (typeof obj === 'string') return obj;
+        if (Array.isArray(obj)) return obj.map(v => extractError(v, depth+1)).join(', ');
+        if (obj.message) return extractError(obj.message, depth+1);
+        if (obj.error) return extractError(obj.error, depth+1);
+        if (obj.errors) return extractError(obj.errors, depth+1);
+        if (obj.details) return extractError(obj.details, depth+1);
+        return JSON.stringify(obj);
+      };
+      
+      const errorMsg = extractError(responseData);
+      
+      console.error('❌ MAKETOU 422 DETAILS:', {
+        status: response.status,
+        code: responseData?.code,
+        message_raw: responseData?.message,
+        error_extracted: errorMsg,
+        full_response: responseData
+      });
+      
+      throw new Error(`MAKETOU ${response.status}: ${errorMsg}`);
+    }
+    
+    console.log('✅ MAKETOU success:', responseData);
     return {
       payment_url: responseData.redirectUrl,
       order_id: responseData.cart?.id || orderId,
@@ -108,64 +114,42 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
     };
     
   } catch (e) {
-    console.error('❌ createPaymentLink error:', {
+    console.error('❌ createPaymentLink fatal:', {
       name: e.name,
-      message: e.message,
-      stack: e.stack
+      message: String(e.message),
+      stack: e.stack?.split('\n')[0]
     });
     throw e;
   }
 };
 
-// 🔍 Vérifier le statut d'un panier
+// 🔍 Statut panier (inchangé)
 export const checkPaymentStatus = async (cartId) => {
   if (MAKETOU_CONFIG.simulationMode) {
     await new Promise(r => setTimeout(r, 1500));
     return 'completed';
   }
-  
   try {
-    const response = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.statusPath}/${cartId}`, {
+    const res = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.statusPath}/${cartId}`, {
       headers: { 'Authorization': `Bearer ${MAKETOU_CONFIG.apiKey}` }
     });
-    
-    if (!response.ok) return 'waiting_payment';
-    
-    const data = await response.json();
-    const status = data.status || 'waiting_payment';
-    
-    if (status === 'completed') return 'success';
-    if (status === 'payment_failed' || status === 'abandoned') return 'failed';
-    return 'pending';
-    
-  } catch (e) {
-    console.warn('⚠️ checkPaymentStatus error:', e.message);
-    return 'pending';
-  }
+    if (!res.ok) return 'waiting_payment';
+    const data = await res.json();
+    return data.status === 'completed' ? 'success' : 
+           ['payment_failed','abandoned'].includes(data.status) ? 'failed' : 'pending';
+  } catch { return 'pending'; }
 };
 
-// ⏱️ Polling du statut
 export const pollPaymentStatus = async (cartId, maxAttempts = 40, interval = 3000) => {
   for (let i = 0; i < maxAttempts; i++) {
     const status = await checkPaymentStatus(cartId);
-    console.log(`🔍 Polling ${i+1}/${maxAttempts} | status: ${status}`);
-    
     if (status === 'success') return 'success';
     if (status === 'failed') return 'failed';
-    
     await new Promise(r => setTimeout(r, interval));
   }
   return 'timeout';
 };
 
-export const setSimulationMode = (enabled) => {
-  MAKETOU_CONFIG.simulationMode = enabled;
-};
+export const setSimulationMode = (enabled) => { MAKETOU_CONFIG.simulationMode = enabled; };
 
-export default {
-  config: MAKETOU_CONFIG,
-  createPaymentLink,
-  checkPaymentStatus,
-  pollPaymentStatus,
-  setSimulationMode
-};
+export default { config: MAKETOU_CONFIG, createPaymentLink, checkPaymentStatus, pollPaymentStatus, setSimulationMode };
