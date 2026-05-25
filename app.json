@@ -11,12 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true
-    },
+    "ios": { "supportsTablet": true },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
@@ -29,9 +24,6 @@
       "bundler": "metro",
       "output": "static",
       "themeColor": "#1a365d"
-    },
-    "plugins": [
-      "expo-router"
-    ]
+    }
   }
 }
