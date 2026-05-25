@@ -1,6 +1,4 @@
-$filePath = "C:\Users\HP\SikaKpe\app.json"
-@'
-{
+﻿{
   "expo": {
     "name": "SikaKpe",
     "slug": "sikakpe-togo",
@@ -13,28 +11,20 @@ $filePath = "C:\Users\HP\SikaKpe\app.json"
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
-    "ios": {
-      "supportsTablet": true
-    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": { "supportsTablet": true },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.rhemacorp.sikakpe"
+      "package": "com.sikakpe.app"
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "static",
       "themeColor": "#1a365d"
-    },
-    "plugins": []
+    }
   }
 }
-'@ | Out-File -FilePath $filePath -Encoding utf8
-
-Write-Host "✅ app.json corrigé et nettoyé (0 erreur)" -ForegroundColor Green
