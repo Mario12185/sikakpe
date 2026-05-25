@@ -1,31 +1,39 @@
 name: 🇹🇬 Déploiement SikaKpɛ
 
 on:
-  workflow_dispatch: # Permet un lancement manuel
+  workflow_dispatch: # Lancement manuel depuis GitHub
   push:
-    branches: [ main ]
+    branches: [ main ] # Déclenchement automatique à chaque push sur main
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: 📦 Checkout
+      - name: 📦 Checkout du code
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Node
+      - name: ⚙️ Configuration Node.js
         uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
+        with:
+          node-version: 20
+          cache: 'npm'
 
-      - name: 📥 Install deps
-        run: npm ci
+      - name: 📥 Installation des dépendances
+        run: npm ci --prefer-offline
 
-      - name: 🔧 Fix Expo Web
-        run: npm install @expo/metro-runtime --save
+      - name: 🌐 Export Web Expo (PWA)
+        run: npx expo export --platform web
+        # 💡 Expo SDK 50+ exporte par défaut dans le dossier 'dist/'
 
-      - name: 🌐 Build Web
-        run: npx expo export --platform web --output-dir web-build
+      - name: 🔍 Vérification du build
+        run: |
+          if [ ! -f dist/index.html ]; then
+            echo "❌ Échec: dist/index.html introuvable. Vérifiez les logs d'export Expo."
+            exit 1
+          fi
+          echo "✅ Build réussi: dist/index.html trouvé"
 
-      - name: 🔥 Deploy Firebase
+      - name: 🔥 Déploiement Firebase Hosting
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: '${{ secrets.GITHUB_TOKEN }}'
