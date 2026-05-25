@@ -5,8 +5,9 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { auth } from './app/services/firebase';
+import { auth, db } from './app/services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 import AuthScreen from './app/screens/AuthScreen';
 import DashboardScreen from './app/screens/DashboardScreen';
@@ -41,58 +42,61 @@ function MainTabs() {
   );
 }
 
+// 🚧 Écran Paywall si abonnement inactif
+function PaywallScreen() {
+  return (
+    <View style={{flex:1, backgroundColor:'#f7fafc', justifyContent:'center', alignItems:'center', padding:20}}>
+      <View style={{backgroundColor:'#fff', padding:24, borderRadius:16, elevation:4, maxWidth:400, alignItems:'center'}}>
+        <Text style={{fontSize:32, marginBottom:12}}>🔒</Text>
+        <Text style={{fontSize:20, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:8}}>Accès restreint</Text>
+        <Text style={{color:'#666', textAlign:'center', marginBottom:20, lineHeight:22}}>
+          Votre abonnement est inactif ou expiré. 
+          Veuillez le renouveler pour accéder au tableau de bord et à vos outils d'audit.
+        </Text>
+        <Text style={{fontSize:14, color:'#999', textAlign:'center'}}>SikaKpɛ • Audit de sécurité indépendant 🇹🇬</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function App() {
   const [user, setUser] = useState(undefined);
+  const [subStatus, setSubStatus] = useState('checking'); // 'checking' | 'active' | 'inactive'
 
   useEffect(() => {
-    console.log('🔄 App mounted - setting up auth');
-    
-    // 🔐 Fonction centrale de mise à jour
-    const updateUser = (currentUser) => {
-      console.log('👤 updateUser called:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
-      setUser(currentUser || null);
-    };
-
-    // 🔐 Listener principal
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      console.log('🔐 onAuthStateChanged fired:', currentUser ? 'CONNECTÉ' : 'NON CONNECTÉ');
-      updateUser(currentUser);
+    const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (!currentUser) { setSubStatus('inactive'); return; }
+      
+      try {
+        const snap = await getDoc(doc(db, 'subscriptions', currentUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const expiresAt = data.expiresAt?.toDate ? data.expiresAt.toDate() : null;
+          const isActive = data.status === 'active' && expiresAt && expiresAt > new Date();
+          setSubStatus(isActive ? 'active' : 'inactive');
+        } else {
+          setSubStatus('inactive');
+        }
+      } catch (e) {
+        console.error('❌ Sub check failed:', e);
+        setSubStatus('inactive');
+      }
     });
 
-    // 🔐 Polling de secours : vérifie auth.currentUser toutes les 200ms pendant 2 secondes max
-    let pollCount = 0;
-    const pollInterval = setInterval(() => {
-      pollCount++;
-      const current = auth.currentUser;
-      if (current && !user) {
-        console.log('🔍 Polling caught currentUser:', current.uid);
-        updateUser(current);
-        clearInterval(pollInterval);
-      }
-      if (pollCount >= 10) { // 10 x 200ms = 2 secondes
-        console.log('⏳ Polling timeout - final check');
-        updateUser(auth.currentUser);
-        clearInterval(pollInterval);
-      }
-    }, 200);
+    // 🔒 Fallback sécurité : si Firestore met > 4s, on affiche Paywall
+    const timer = setTimeout(() => { if (subStatus === 'checking') setSubStatus('inactive'); }, 4000);
+    return () => { unsubAuth(); clearTimeout(timer); };
+  }, []);
 
-    return () => {
-      unsubscribe();
-      clearInterval(pollInterval);
-    };
-  }, [user]); // Re-run si user change (pour arrêter le polling une fois connecté)
-
-  // ⏳ Loader pendant l'initialisation
-  if (user === undefined) {
-    return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Initialisation...</Text></View>;
+  if (user === undefined || subStatus === 'checking') {
+    return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Vérification de votre accès...</Text></View>;
   }
-
-  console.log('🎨 Rendering | user:', user ? 'CONNECTÉ → MainTabs' : 'NON CONNECTÉ → AuthScreen');
 
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        {user ? <MainTabs /> : <AuthScreen />}
+        {!user ? <AuthScreen /> : subStatus === 'active' ? <MainTabs /> : <PaywallScreen />}
       </NavigationContainer>
     </SafeAreaProvider>
   );

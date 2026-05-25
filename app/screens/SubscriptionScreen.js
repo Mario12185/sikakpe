@@ -44,6 +44,8 @@ export default function SubscriptionScreen({ navigation }) {
       lastPaymentMethod: 'maketou', maketouOrderId: orderId, updatedAt: serverTimestamp()
     }, { merge: true });
     setSub({ planType, amount, expiresAt, isActive: true, status: 'active', maketouOrderId: orderId });
+// 🔄 Force App.js à re-vérifier le statut
+setTimeout(() => { window.location.reload(); }, 800);
   };
 
   const initiatePayment = async (planType, amount) => {
@@ -154,3 +156,4 @@ export default function SubscriptionScreen({ navigation }) {
     </View>
   );
 }
+
