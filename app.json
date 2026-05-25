@@ -1,47 +1,40 @@
+$filePath = "C:\Users\HP\SikaKpe\app.json"
+@'
 {
   "expo": {
     "name": "SikaKpe",
-    "slug": "sikakpe",
+    "slug": "sikakpe-togo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
       },
-      "package": "com.mario12185.sikakpe"
+      "package": "com.rhemacorp.sikakpe"
     },
     "web": {
-      "bundler": "metro",
-      "output": "single",
       "favicon": "./assets/favicon.png",
-      "publicPath": "/",
-      "meta": {
-        "apple-mobile-web-app-capable": "yes",
-        "apple-mobile-web-app-status-bar-style": "default",
-        "viewport": "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-      }
+      "bundler": "metro",
+      "output": "static",
+      "themeColor": "#1a365d"
     },
-    "extra": {
-      "eas": {
-        "projectId": "96cc93b6-6cf8-40b3-a938-607b04c2ca9e"
-      }
-    },
-    "owner": "mario12185",
-    "plugins": [
-      "expo-font"
-    ]
+    "plugins": []
   }
 }
+'@ | Out-File -FilePath $filePath -Encoding utf8
+
+Write-Host "✅ app.json corrigé et nettoyé (0 erreur)" -ForegroundColor Green

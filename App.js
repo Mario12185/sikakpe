@@ -17,6 +17,7 @@ import SubscriptionScreen from './app/screens/SubscriptionScreen';
 import CheckInScreen from './app/screens/CheckInScreen';
 import PublicCheckInScreen from './app/screens/PublicCheckInScreen';
 import SettingsScreen from './app/screens/SettingsScreen';
+import PWAInstallBanner from './app/components/PWAInstallBanner';
 
 const Tab = createBottomTabNavigator();
 
@@ -121,3 +122,4 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
+
