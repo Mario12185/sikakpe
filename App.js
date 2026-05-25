@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, ActivityIndicator, TouchableOpacity, ScrollView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,18 +42,30 @@ function MainTabs() {
   );
 }
 
-// 🚧 Écran Paywall si abonnement inactif
-function PaywallScreen() {
+// 🔒 Écran Paywall avec bouton de paiement
+function PaywallScreen({ onProceedToPay }) {
   return (
     <View style={{flex:1, backgroundColor:'#f7fafc', justifyContent:'center', alignItems:'center', padding:20}}>
       <View style={{backgroundColor:'#fff', padding:24, borderRadius:16, elevation:4, maxWidth:400, alignItems:'center'}}>
-        <Text style={{fontSize:32, marginBottom:12}}>🔒</Text>
-        <Text style={{fontSize:20, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:8}}>Accès restreint</Text>
-        <Text style={{color:'#666', textAlign:'center', marginBottom:20, lineHeight:22}}>
+        <Text style={{fontSize:48, marginBottom:16}}>🔒</Text>
+        <Text style={{fontSize:22, fontWeight:'bold', color:'#1a365d', textAlign:'center', marginBottom:10}}>Accès restreint</Text>
+        <Text style={{color:'#666', textAlign:'center', marginBottom:24, lineHeight:22, fontSize:15}}>
           Votre abonnement est inactif ou expiré. 
           Veuillez le renouveler pour accéder au tableau de bord et à vos outils d'audit.
         </Text>
-        <Text style={{fontSize:14, color:'#999', textAlign:'center'}}>SikaKpɛ • Audit de sécurité indépendant 🇹🇬</Text>
+        <TouchableOpacity 
+          onPress={onProceedToPay} 
+          style={{backgroundColor:'#1a365d', padding:16, borderRadius:12, width:'100%', alignItems:'center', marginBottom:8}}
+        >
+          <Text style={{color:'#fff', fontWeight:'bold', fontSize:16}}>💳 Payer mon abonnement</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => window.location.href = 'mailto:support@sikakpe.tg'} 
+          style={{marginTop:4}}
+        >
+          <Text style={{color:'#3182ce', fontSize:13}}>📧 Besoin d'aide ? Contacter le support</Text>
+        </TouchableOpacity>
+        <Text style={{fontSize:11, color:'#999', marginTop:20, textAlign:'center'}}>SikaKpɛ • Audit de sécurité indépendant 🇹🇬</Text>
       </View>
     </View>
   );
@@ -62,6 +74,7 @@ function PaywallScreen() {
 export default function App() {
   const [user, setUser] = useState(undefined);
   const [subStatus, setSubStatus] = useState('checking'); // 'checking' | 'active' | 'inactive'
+  const [showPayment, setShowPayment] = useState(false);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -84,7 +97,6 @@ export default function App() {
       }
     });
 
-    // 🔒 Fallback sécurité : si Firestore met > 4s, on affiche Paywall
     const timer = setTimeout(() => { if (subStatus === 'checking') setSubStatus('inactive'); }, 4000);
     return () => { unsubAuth(); clearTimeout(timer); };
   }, []);
@@ -93,10 +105,18 @@ export default function App() {
     return <View style={{flex:1,justifyContent:'center',alignItems:'center',backgroundColor:'#f7fafc'}}><ActivityIndicator size="large" color="#1a365d" /><Text style={{marginTop:10}}>Vérification de votre accès...</Text></View>;
   }
 
+  // 🔀 Logique de routage
+  if (!user) return <AuthScreen />;
+  if (subStatus === 'inactive' && !showPayment) return <PaywallScreen onProceedToPay={() => setShowPayment(true)} />;
+  if (subStatus === 'inactive' && showPayment) {
+    // ✅ Affiche l'écran de paiement avec un faux objet navigation pour éviter les crashs
+    return <SubscriptionScreen navigation={{ navigate: () => window.location.reload() }} />;
+  }
+  
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        {!user ? <AuthScreen /> : subStatus === 'active' ? <MainTabs /> : <PaywallScreen />}
+        <MainTabs />
       </NavigationContainer>
     </SafeAreaProvider>
   );
