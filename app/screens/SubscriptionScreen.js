@@ -1,11 +1,12 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
 import { auth, db } from '../services/firebase';
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { createPaymentLink, pollPaymentStatus, setSimulationMode, MAKETOU_CONFIG } from '../services/maketou';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { createPaymentLink, pollPaymentStatus, MAKETOU_CONFIG } from '../services/maketou';
 
 export default function SubscriptionScreen({ navigation }) {
   const [sub, setSub] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -14,13 +15,21 @@ export default function SubscriptionScreen({ navigation }) {
       try {
         const uid = auth.currentUser?.uid;
         if (!uid) { setLoading(false); return; }
-        const snap = await getDoc(doc(db, 'subscriptions', uid));
-        if (snap.exists()) {
-          const data = snap.data();
+        
+        // 🔍 Charger le profil utilisateur (pour avoir le VRAI displayName)
+        const userSnap = await getDoc(doc(db, 'users', uid));
+        if (userSnap.exists()) {
+          setUserProfile(userSnap.data());
+        }
+        
+        // Charger l'abonnement
+        const subSnap = await getDoc(doc(db, 'subscriptions', uid));
+        if (subSnap.exists()) {
+          const data = subSnap.data();
           const expiresAt = data.expiresAt?.toDate ? data.expiresAt.toDate() : null;
           setSub({ ...data, expiresAt, isActive: expiresAt ? expiresAt > new Date() : false });
         }
-      } catch (e) { console.error('❌ Load sub error:', e); }
+      } catch (e) { console.error('❌ Load error:', e); }
       finally { setLoading(false); }
     };
     load();
@@ -44,16 +53,19 @@ export default function SubscriptionScreen({ navigation }) {
       const user = auth.currentUser;
       if (!uid || !user) throw new Error('Utilisateur non authentifié');
 
-      // ✅ await AJOUTÉ ici (corrige le undefined)
+      // ✅ Utiliser le VRAI displayName depuis Firestore (fallback email)
+      const displayName = userProfile?.displayName || user.email?.split('@')[0] || 'Client SikaKpe';
+      const email = user.email;
+
+      console.log('💳 Payment init | displayName:', displayName, '| email:', email);
+
       const { payment_url, order_id, isSimulation } = await createPaymentLink({
         amount, currency: 'XOF',
-        email: user.email,
-        displayName: user.displayName || uid,
+        email,
+        displayName,  // ✅ VRAI nom depuis Firestore
         planType,
         subscriptionId: uid
       });
-
-      console.log(`💳 Payment initiated | order: ${order_id} | sim: ${isSimulation} | amount: ${amount}F`);
 
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         if (isSimulation) {
@@ -111,14 +123,7 @@ export default function SubscriptionScreen({ navigation }) {
   return (
     <View style={{flex:1,backgroundColor:'#f7fafc',padding:20,justifyContent:'center'}}>
       <Text style={{fontSize:22,fontWeight:'bold',color:'#1a365d',textAlign:'center',marginBottom:8}}>💳 Abonnement SikaKpɛ</Text>
-      <Text style={{color:'#666',textAlign:'center',marginBottom:16,fontSize:14}}>Paiement via MAKETOU (Mode Réel)</Text>
-
-      {/* 💰 BOUTON TEST 100 FCFA */}
-      <TouchableOpacity onPress={()=>initiatePayment('individual', 100)} disabled={processing}
-        style={{backgroundColor:'#fff',padding:16,borderRadius:12,marginBottom:16,borderWidth:2,borderColor:'#f59e0b',borderStyle:'dashed'}}>
-        <Text style={{fontSize:16,fontWeight:'bold',color:'#f59e0b'}}>🧪 TEST 100 FCFA (Paiement Réel)</Text>
-        <Text style={{fontSize:12,color:'#666',marginTop:4}}>Valide le flux sans risque • Frais MAKETOU : ~8 FCFA</Text>
-      </TouchableOpacity>
+      <Text style={{color:'#666',textAlign:'center',marginBottom:16,fontSize:14}}>Paiement via MAKETOU</Text>
 
       {sub?.isActive ? (
         <View style={{backgroundColor:'#d1fae5', padding:16, borderRadius:12, alignItems:'center', marginBottom:16, borderLeftWidth:4, borderLeftColor:'#065f46'}}>
@@ -145,7 +150,7 @@ export default function SubscriptionScreen({ navigation }) {
       )}
 
       <TouchableOpacity onPress={resetMVP} style={{marginTop:16,alignItems:'center'}}><Text style={{color:'#666',fontSize:12}}>🔄 Réinitialiser (MVP)</Text></TouchableOpacity>
-      <Text style={{fontSize:10,color:'#999',textAlign:'center',marginTop:20}}>MAKETOU • Paiement sécurisé • Support: support@sikakpe.tg</Text>
+      <Text style={{fontSize:10,color:'#999',textAlign:'center',marginTop:20}}>MAKETOU • Paiement sécurisé</Text>
     </View>
   );
 }

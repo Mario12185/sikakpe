@@ -1,5 +1,5 @@
-﻿// 📦 app/services/maketou.js — MAKETOU API DEBUG 422
-// Cette version affiche TOUT pour identifier la cause exacte
+﻿// 📦 app/services/maketou.js — MAKETOU API (FIXED: phone + firstName)
+// Base: https://api.maketou.net | Auth: Bearer Token
 
 export const MAKETOU_CONFIG = {
   baseUrl: 'https://api.maketou.net',
@@ -15,7 +15,7 @@ export const MAKETOU_CONFIG = {
   simulationMode: false
 };
 
-// 🔗 Créer un panier — VERSION DEBUG MAX
+// 🔗 Créer un panier — VERSION CORRIGÉE (phone + firstName)
 export const createPaymentLink = async ({ amount, currency = 'XOF', email, displayName, planType, subscriptionId }) => {
   const orderId = `SikaKpe_${subscriptionId}_${Date.now()}`;
   
@@ -26,31 +26,50 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
   const productDocumentId = MAKETOU_CONFIG.productIds[planType];
   if (!productDocumentId) throw new Error(`productDocumentId manquant pour "${planType}"`);
   
-  // 📝 Noms sécurisés
-  const cleanName = (displayName || email || 'Client SikaKpe').trim();
-  const nameParts = cleanName.split(' ').filter(p => p.length > 0);
-  const firstName = nameParts[0] || 'Client';
-  const lastName = nameParts.slice(1).join(' ') || 'SikaKpe';
+  // 👤 Récupérer le VRAI nom (displayName depuis Firestore ou fallback)
+  let firstName = 'Client';
+  let lastName = 'SikaKpe';
+  
+  if (displayName && typeof displayName === 'string' && displayName.trim().length > 0) {
+    const cleanName = displayName.trim();
+    const nameParts = cleanName.split(' ').filter(p => p.length > 0);
+    firstName = nameParts[0] || 'Client';
+    lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'SikaKpe';
+  }
+  // Fallback: utiliser l'email avant l'UID
+  else if (email && email.includes('@')) {
+    firstName = email.split('@')[0].split('.')[0] || 'Client';
+    lastName = 'SikaKpe';
+  }
+  
+  // 📞 Phone: envoyer SEULEMENT si format valide (+228XXXXXXXX)
+  const phoneRegex = /^\+228[0-9]{8}$/;
+  const phone = '';  // On ne l'envoie pas si vide/invalid
+  
+  // 💰 customerPrice en entier
   const customerPrice = Math.round(Number(amount) || 0);
   
+  // 📦 Construire le body (NE PAS inclure phone si vide)
   const body = {
     productDocumentId,
     email: email?.trim()?.toLowerCase(),
     firstName: firstName.trim(),
     lastName: lastName.trim(),
-    phone: '',
     redirectURL: MAKETOU_CONFIG.returnUrl,
     customerPrice,
     meta: { uid: subscriptionId, planType, platform: 'web', originalAmount: amount }
   };
+  
+  // Ajouter phone SEULEMENT si valide
+  if (phone && phoneRegex.test(phone)) {
+    body.phone = phone;
+  }
 
-  // 🔍 LOG 1: Body envoyé (masqué partiellement)
-  console.log('📤 MAKETOU request body:', JSON.stringify({
-    ...body,
-    productDocumentId: '***',
-    email: '***',
-    meta: { uid: '***' }
-  }, null, 2));
+  console.log('📤 MAKETOU request:', {
+    url: `${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.initiatePath}`,
+    body: { ...body, productDocumentId: '***', email: '***', meta: { uid: '***' } },
+    firstName, lastName, customerPrice
+  });
 
   try {
     const response = await fetch(`${MAKETOU_CONFIG.baseUrl}${MAKETOU_CONFIG.initiatePath}`, {
@@ -62,25 +81,11 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
       body: JSON.stringify(body)
     });
     
-    // 🔍 LOG 2: Réponse RAW avant tout traitement
     const rawText = await response.text();
-    console.log('📥 MAKETOU raw response:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      body: rawText
-    });
-    
-    // Parser JSON si possible
     let responseData;
-    try {
-      responseData = JSON.parse(rawText);
-    } catch {
-      responseData = { raw: rawText };
-    }
+    try { responseData = JSON.parse(rawText); } catch { responseData = { raw: rawText }; }
     
     if (!response.ok) {
-      // 🔍 LOG 3: Extraction multi-niveaux de l'erreur
       const extractError = (obj, depth = 0) => {
         if (depth > 3) return 'Too deep';
         if (!obj) return 'Empty';
@@ -94,19 +99,11 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
       };
       
       const errorMsg = extractError(responseData);
-      
-      console.error('❌ MAKETOU 422 DETAILS:', {
-        status: response.status,
-        code: responseData?.code,
-        message_raw: responseData?.message,
-        error_extracted: errorMsg,
-        full_response: responseData
-      });
-      
+      console.error('❌ MAKETOU error:', { status: response.status, message: errorMsg });
       throw new Error(`MAKETOU ${response.status}: ${errorMsg}`);
     }
     
-    console.log('✅ MAKETOU success:', responseData);
+    console.log('✅ MAKETOU success:', { cartId: responseData.cart?.id, redirectUrl: responseData.redirectUrl });
     return {
       payment_url: responseData.redirectUrl,
       order_id: responseData.cart?.id || orderId,
@@ -114,11 +111,7 @@ export const createPaymentLink = async ({ amount, currency = 'XOF', email, displ
     };
     
   } catch (e) {
-    console.error('❌ createPaymentLink fatal:', {
-      name: e.name,
-      message: String(e.message),
-      stack: e.stack?.split('\n')[0]
-    });
+    console.error('❌ createPaymentLink error:', e.message);
     throw e;
   }
 };
